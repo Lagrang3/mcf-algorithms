@@ -51,11 +51,11 @@ struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 	}
 
 	for (size_t i = 0; i < tal_count(graph->arc_tail); i++)
-		graph->arc_tail[i] = node_new(INVALID_INDEX);
+		graph->arc_tail[i] = node_obj(INVALID_INDEX);
 	for (size_t i = 0; i < tal_count(graph->node_adjacency_first); i++)
-		graph->node_adjacency_first[i] = arc_new(INVALID_INDEX);
+		graph->node_adjacency_first[i] = arc_obj(INVALID_INDEX);
 	for (size_t i = 0; i < tal_count(graph->node_adjacency_next); i++)
-		graph->node_adjacency_next[i] = arc_new(INVALID_INDEX);
+		graph->node_adjacency_next[i] = arc_obj(INVALID_INDEX);
 
 	return graph;
 }

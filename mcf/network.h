@@ -21,11 +21,11 @@ struct node {
 	u32 idx;
 };
 
-static inline struct arc arc_new(u32 index) {
+static inline struct arc arc_obj(u32 index) {
 	struct arc arc = {.idx = index};
 	return arc;
 }
-static inline struct node node_new(u32 index) {
+static inline struct node node_obj(u32 index) {
 	struct node node = {.idx = index};
 	return node;
 }

@@ -45,7 +45,8 @@ bool dijkstra(const tal_t *ctx, const struct graph *graph,
 
 	if (tal_count(cost) != max_num_arcs ||
 	    tal_count(capacity) != max_num_arcs ||
-	    tal_count(prev) != max_num_nodes || tal_count(distance))
+	    tal_count(prev) != max_num_nodes ||
+	    tal_count(distance) != max_num_nodes)
 		goto finish;
 
 	tal_t *this_ctx = tal(ctx, tal_t);
@@ -82,7 +83,7 @@ bool dijkstra(const tal_t *ctx, const struct graph *graph,
 		}
 
 		for (struct arc arc =
-			 node_adjacency_begin(graph, node_new(cur));
+			 node_adjacency_begin(graph, node_obj(cur));
 		     !node_adjacency_end(arc);
 		     arc = node_adjacency_next(graph, arc)) {
 			// check if this arc is traversable

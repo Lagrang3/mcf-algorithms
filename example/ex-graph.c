@@ -29,15 +29,15 @@ int main() {
 	struct graph *graph = graph_new(ctx, MAX_NODES, MAX_ARCS, DUAL_BIT);
 	assert(graph);
 
-	graph_add_arc(graph, arc_new(0), node_new(0), node_new(1));
-	graph_add_arc(graph, arc_new(1), node_new(0), node_new(2));
-	graph_add_arc(graph, arc_new(2), node_new(0), node_new(3));
-	graph_add_arc(graph, arc_new(3), node_new(3), node_new(2));
+	graph_add_arc(graph, arc_obj(0), node_obj(0), node_obj(1));
+	graph_add_arc(graph, arc_obj(1), node_obj(0), node_obj(2));
+	graph_add_arc(graph, arc_obj(2), node_obj(0), node_obj(3));
+	graph_add_arc(graph, arc_obj(3), node_obj(3), node_obj(2));
 
-	show(graph, node_new(0));
-	show(graph, node_new(1));
-	show(graph, node_new(2));
-	show(graph, node_new(3));
+	show(graph, node_obj(0));
+	show(graph, node_obj(1));
+	show(graph, node_obj(2));
+	show(graph, node_obj(3));
 
 	printf("Freeing memory\n");
 	ctx = tal_free(ctx);
