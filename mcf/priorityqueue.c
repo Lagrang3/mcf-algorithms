@@ -1,4 +1,4 @@
-//#define NDEBUG 1
+#define NDEBUG 1
 #include <mcf/priorityqueue.h>
 
 /* priorityqueue: a data structure for pairs (key, value) with
