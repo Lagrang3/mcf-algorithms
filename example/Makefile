@@ -1,0 +1,14 @@
+EXAMPLE_SRC := $(wildcard example/ex-*.c)
+EXAMPLE_OBJS := $(EXAMPLE_SRC:.c=.o)
+EXAMPLE_PROGRAMS := $(EXAMPLE_OBJS:.o=)
+
+ALL_C_SOURCES += $(EXAMPLE_SRC)
+ALL_PROGRAMS += $(EXAMPLE_PROGRAMS)
+
+$(EXAMPLE_OBJS): $(EXAMPLE_SRC)
+
+example/ex-pqueue: example/ex-pqueue.o
+
+example/ex-graph: example/ex-graph.o
+
+example/ex-dijkstra: example/ex-dijkstra.o
