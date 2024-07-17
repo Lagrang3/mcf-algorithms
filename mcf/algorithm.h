@@ -3,6 +3,9 @@
 
 #include <mcf/network.h>
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 /* Search any path from source to destination using Breadth First Search.
  *
  * input:
@@ -55,5 +58,33 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		   const struct node source, const struct node destination,
 		   bool prune, const s64 *capacity, const s64 cap_threshold,
 		   const s64 *cost, struct arc *prev, s64 *distance);
+
+/* Finds any flow that satisfy the capacity constraints:
+ * 	flow[i] <= capacity[i]
+ * and balance constraints:
+ * 	balance[source] = - balance[destination] = amount
+ * 	balance[node] = 0 for every other node
+ *
+ * It uses simple augmenting paths algorithm.
+ *
+ * input:
+ * @ctx: tal context for internal allocation
+ * @graph: topological information of the graph
+ * @source: source node
+ * @destination: destination node
+ * @capacity: arcs capacity
+ *
+ * output:
+ * @capacity: residual capacity
+ * returns true if the balance constraint can be satisfied
+ *
+ * precondition:
+ * |capacity|=graph_max_num_arcs
+ * amount>=0
+ * */
+bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
+			 const struct node source,
+			 const struct node destination, s64 *capacity,
+			 s64 amount);
 
 #endif /* ALGORITHM_H */

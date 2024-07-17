@@ -4,6 +4,8 @@
 #include <mcf/algorithm.h>
 #include <mcf/priorityqueue.h>
 
+static const s64 INFINITE = INT64_MAX;
+
 /* Simple queue to traverse the network. */
 struct queue_data {
 	u32 idx;
@@ -154,5 +156,101 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 finish:
 	tal_free(this_ctx);
 	return target_found;
+}
+
+/* Get the max amount of flow one can send from source to target along the path
+ * encoded in `prev`. */
+static s64 get_augmenting_flow(const struct graph *graph,
+			       const struct node source,
+			       const struct node target, const s64 *capacity,
+			       const struct arc *prev) {
+	s64 flow = INFINITE;
+
+	struct node cur = target;
+	while (cur.idx != source.idx) {
+		assert(cur.idx < tal_count(prev));
+		const struct arc arc = prev[cur.idx];
+		flow = MIN(flow, capacity[arc.idx]);
+
+		/* we are traversing in the opposite direction to the flow,
+		 * hence the next node is at the tail of the arc. */
+		cur = arc_tail(graph, arc);
+	}
+
+	assert(flow < INFINITE && flow > 0);
+	return flow;
+}
+
+/* Augment a `flow` amount along the path defined by `prev`.*/
+static void augment_flow(const struct graph *graph, const struct node source,
+			 const struct node target, const struct arc *prev,
+			 s64 *capacity, s64 flow) {
+	struct node cur = target;
+
+	while (cur.idx != source.idx) {
+		assert(cur.idx < tal_count(prev));
+		const struct arc arc = prev[cur.idx];
+		const struct arc dual = arc_dual(graph, arc);
+
+		assert(arc.idx < tal_count(capacity));
+		assert(dual.idx < tal_count(capacity));
+
+		capacity[arc.idx] -= flow;
+		capacity[dual.idx] += flow;
+
+		assert(capacity[arc.idx] >= 0);
+
+		/* we are traversing in the opposite direction to the flow,
+		 * hence the next node is at the tail of the arc. */
+		cur = arc_tail(graph, arc);
+	}
+}
+
+bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
+			 const struct node source,
+			 const struct node destination, s64 *capacity,
+			 s64 amount) {
+	tal_t *this_ctx = tal(ctx, tal_t);
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	const size_t max_num_nodes = graph_max_num_nodes(graph);
+
+	// check preconditions
+	if (amount < 0) goto finish;
+
+	if (!graph || source.idx == INVALID_INDEX ||
+	    destination.idx == INVALID_INDEX || !capacity)
+		goto finish;
+
+	if (tal_count(capacity) != max_num_arcs) goto finish;
+
+	/* path information
+	 * prev: is the id of the arc that lead to the node. */
+	struct arc *prev = tal_arr(this_ctx, struct arc, max_num_nodes);
+	if (!prev) goto finish;
+
+	while (amount > 0) {
+		// find a path from source to target
+		if (!BFS_path(this_ctx, graph, source, destination, capacity, 1,
+			      prev))
+			goto finish;
+
+		// traverse the path and see how much flow we can send
+		s64 delta = get_augmenting_flow(graph, source, destination,
+						capacity, prev);
+
+		// commit that flow to the path
+		delta = MIN(amount, delta);
+		assert(delta > 0 && delta <= amount);
+
+		augment_flow(graph, source, destination, prev, capacity, delta);
+		amount -= delta;
+	}
+
+	tal_free(this_ctx);
+	return true;
+
+finish:
+	tal_free(this_ctx);
+	return amount == 0;
 }
 

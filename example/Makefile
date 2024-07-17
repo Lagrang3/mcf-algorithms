@@ -14,3 +14,5 @@ example/ex-graph: example/ex-graph.o
 example/ex-bfs: example/ex-bfs.o
 
 example/ex-dijkstra: example/ex-dijkstra.o
+
+example/ex-flow: example/ex-flow.o
