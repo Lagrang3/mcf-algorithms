@@ -10,7 +10,8 @@
  * @graph: graph of the network,
  * @source: source node,
  * @destination: destination node,
- * @capacity: an arc i is traversable if capacity[i]>0,
+ * @capacity: arcs capacity
+ * @cap_threshold: an arc i is traversable if capacity[i]>=cap_threshold
  *
  * output:
  * @prev: prev[i] is the arc that leads to node i for an optimal solution, it
@@ -22,7 +23,7 @@
  * */
 bool BFS_path(const tal_t *ctx, const struct graph *graph,
 	      const struct node source, const struct node destination,
-	      const s64 *capacity, struct arc *prev);
+	      const s64 *capacity, const s64 cap_threshold, struct arc *prev);
 
 /* Computes the distance from the source to every other node in the network
  * using Dijkstra's algorithm.
@@ -34,7 +35,8 @@ bool BFS_path(const tal_t *ctx, const struct graph *graph,
  * @destination: destination node
  * @prune: if prune is true the algorithm stops when the optimal path is found
  * for the destination node
- * @capacity: arc's capacity, only arcs with capacity>0 are traversable
+ * @capacity: arcs capacity
+ * @cap_threshold: an arc i is traversable if capacity[i]>=cap_threshold
  * @cost: arc's cost
  *
  * output:
@@ -51,8 +53,7 @@ bool BFS_path(const tal_t *ctx, const struct graph *graph,
  * */
 bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		   const struct node source, const struct node destination,
-		   bool prune, const s64 *capacity, const s64 *cost,
-		   struct arc *prev, s64 *distance);
-
+		   bool prune, const s64 *capacity, const s64 cap_threshold,
+		   const s64 *cost, struct arc *prev, s64 *distance);
 
 #endif /* ALGORITHM_H */

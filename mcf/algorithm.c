@@ -12,7 +12,7 @@ struct queue_data {
 
 bool BFS_path(const tal_t *ctx, const struct graph *graph,
 	      const struct node source, const struct node destination,
-	      const s64 *capacity, struct arc *prev) {
+	      const s64 *capacity, const s64 cap_threshold, struct arc *prev) {
 	tal_t *this_ctx = tal(ctx, tal_t);
 	bool target_found = false;
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
@@ -51,7 +51,7 @@ bool BFS_path(const tal_t *ctx, const struct graph *graph,
 		     !node_adjacency_end(arc);
 		     arc = node_adjacency_next(graph, arc)) {
 			// check if this arc is traversable
-			if (capacity[arc.idx] <= 0) continue;
+			if (capacity[arc.idx] < cap_threshold) continue;
 
 			const struct node next = arc_head(graph, arc);
 
@@ -73,8 +73,8 @@ finish:
 
 bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		   const struct node source, const struct node destination,
-		   bool prune, const s64 *capacity, const s64 *cost,
-		   struct arc *prev, s64 *distance) {
+		   bool prune, const s64 *capacity, const s64 cap_threshold,
+		   const s64 *cost, struct arc *prev, s64 *distance) {
 	bool target_found = false;
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
@@ -130,7 +130,7 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		     !node_adjacency_end(arc);
 		     arc = node_adjacency_next(graph, arc)) {
 			// check if this arc is traversable
-			if (capacity[arc.idx] <= 0) continue;
+			if (capacity[arc.idx] < cap_threshold) continue;
 
 			const struct node next = arc_head(graph, arc);
 
