@@ -70,8 +70,8 @@ int main() {
 	show(graph, node_obj(5));
 	show(graph, node_obj(6));
 
-	bool result = dijkstra(ctx, graph, node_obj(1), node_obj(6), false,
-			       capacity, cost, prev, distance);
+	bool result = dijkstra_path(ctx, graph, node_obj(1), node_obj(6), false,
+				    capacity, cost, prev, distance);
 	assert(result);
 
 	for (size_t i = 1; i <= 6; i++) {
