@@ -251,3 +251,18 @@ finish:
 	return amount == 0;
 }
 
+s64 node_balance(const struct graph *graph, const struct node node,
+		 const s64 *capacity) {
+	s64 balance = 0;
+
+	for (struct arc arc = node_adjacency_begin(graph, node);
+	     !node_adjacency_end(arc); arc = node_adjacency_next(graph, arc)) {
+		struct arc dual = arc_dual(graph, arc);
+
+		if (arc_is_dual(graph, arc))
+			balance += capacity[arc.idx];
+		else
+			balance -= capacity[dual.idx];
+	}
+	return balance;
+}

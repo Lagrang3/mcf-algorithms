@@ -87,4 +87,20 @@ bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
 			 const struct node destination, s64 *capacity,
 			 s64 amount);
 
+/* Computes the balance of a node.
+ *
+ * @graph: topology
+ * @node: node
+ * @capacity: capacity in the residual sense, not the constrain capacity
+ *
+ * This works because in the adjacency list an arc wich is dual is associated
+ * with an inconming arc i, then we add this flow, while an arc which is not
+ * dual corresponds to and outgoing flow that we need to substract.
+ * The flow on the arc i (not dual) is computed as:
+ * 	flow[i] = residual_capacity[i_dual],
+ * while the constrain capacity is
+ * 	capacity[i] = residual_capacity[i] + residual_capacity[i_dual] */
+s64 node_balance(const struct graph *graph, const struct node node,
+		 const s64 *capacity);
+
 #endif /* ALGORITHM_H */

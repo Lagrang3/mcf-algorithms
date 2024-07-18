@@ -43,9 +43,14 @@ int main() {
 	bool result = simple_feasibleflow(ctx, graph, src, dst, capacity, 5);
 	assert(result);
 
+	assert(node_balance(graph, src, capacity) == -5);
+	assert(node_balance(graph, dst, capacity) == 5);
+
+	for (u32 i = 2; i < 10; i++)
+		assert(node_balance(graph, node_obj(i), capacity) == 0);
+
 	printf("Freeing memory\n");
 	ctx = tal_free(ctx);
 	return 0;
 }
-
 
