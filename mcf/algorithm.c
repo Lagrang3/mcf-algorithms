@@ -246,9 +246,6 @@ bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
 		amount -= delta;
 	}
 
-	tal_free(this_ctx);
-	return true;
-
 finish:
 	tal_free(this_ctx);
 	return amount == 0;
