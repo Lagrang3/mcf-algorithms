@@ -16,3 +16,5 @@ example/ex-bfs: example/ex-bfs.o
 example/ex-dijkstra: example/ex-dijkstra.o
 
 example/ex-flow: example/ex-flow.o
+
+example/ex-mcf: example/ex-mcf.o

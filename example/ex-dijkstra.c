@@ -41,6 +41,7 @@ int main() {
 
 	s64 *capacity = tal_arrz(ctx, s64, MAX_ARCS);
 	s64 *cost = tal_arrz(ctx, s64, MAX_ARCS);
+	s64 *potential = tal_arrz(ctx, s64, MAX_NODES);
 	s64 *distance = tal_arr(ctx, s64, MAX_NODES);
 	struct arc *prev = tal_arr(ctx, struct arc, MAX_NODES);
 
@@ -70,13 +71,21 @@ int main() {
 	show(graph, node_obj(5));
 	show(graph, node_obj(6));
 
-	bool result = dijkstra_path(ctx, graph, node_obj(1), node_obj(6), false,
-				    capacity, 1, cost, prev, distance);
+	bool result =
+	    dijkstra_path(ctx, graph, node_obj(1), node_obj(6), false, capacity,
+			  1, cost, potential, prev, distance);
 	assert(result);
 
 	for (size_t i = 1; i <= 6; i++) {
 		printf("node: %zu, distance: %" PRIi64 "\n", i, distance[i]);
 	}
+	
+	assert(distance[1]==0);
+	assert(distance[2]==7);
+	assert(distance[3]==9);
+	assert(distance[4]==20);
+	assert(distance[5]==26);
+	assert(distance[6]==11);
 
 	printf("Freeing memory\n");
 	ctx = tal_free(ctx);
