@@ -5,14 +5,23 @@
 #include <mcf/network.h>
 #include <stdio.h>
 
+int next_bit(s64 x) {
+	int b;
+	for (b = 0; (1LL << b) < x; b++)
+		;
+	return b;
+}
+
 int main() {
 	tal_t *ctx = tal(NULL, tal_t);
 	assert(ctx);
 
-	int N_nodes, N_arcs, DUAL_BIT = 0;
+	int N_nodes, N_arcs;
 	scanf("%d %d\n", &N_nodes, &N_arcs);
+
 	const int MAX_NODES = N_nodes;
-	const int MAX_ARCS = N_arcs * 2;
+	const int DUAL_BIT = next_bit(N_arcs);
+	const int MAX_ARCS = (1LL << DUAL_BIT) | N_arcs;
 
 	struct graph *graph = graph_new(ctx, MAX_NODES, MAX_ARCS, DUAL_BIT);
 	assert(graph);
@@ -43,7 +52,7 @@ int main() {
 	assert(node_balance(graph, src, capacity) == -amount);
 	assert(node_balance(graph, dst, capacity) == amount);
 
-	for (u32 i = 1; i < 4; i++)
+	for (u32 i = 2; i < N_nodes; i++)
 		assert(node_balance(graph, node_obj(i), capacity) == 0);
 
 	const s64 total_cost = flow_cost(graph, capacity, cost);
