@@ -20,8 +20,8 @@ def generate_problem(N_nodes, N_arcs, source, target, M_cap, M_cost):
     start_nodes = np.array([ i for (i,j) in G.edges() ])
     end_nodes = np.array([ j for (i,j) in G.edges() ])
 
-    capacity = np.random.randint(M_cap, size=N_arcs)
-    cost = np.random.randint(M_cost, size=N_arcs)
+    capacity = np.random.randint(1, M_cap+1, size=N_arcs)
+    cost = np.random.randint(M_cost+1, size=N_arcs)
 
     # find out the max flow
     smf = max_flow.SimpleMaxFlow()
