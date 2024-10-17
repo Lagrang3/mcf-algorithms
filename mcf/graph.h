@@ -1,5 +1,5 @@
-#ifndef NETWORK_H
-#define NETWORK_H
+#ifndef GRAPH_H
+#define GRAPH_H
 
 #include <assert.h>
 #include <ccan/short_types/short_types.h>
@@ -130,4 +130,4 @@ struct arc graph_add_arc(struct graph *graph, const struct arc arc,
 struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 			const size_t max_num_arcs, const size_t arc_dual_bit);
 
-#endif /* NETWORK_H */
+#endif /* GRAPH_H */

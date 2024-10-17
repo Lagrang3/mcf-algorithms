@@ -2,7 +2,7 @@
 #include <ccan/tal/tal.h>
 #include <inttypes.h>
 #include <mcf/algorithm.h>
-#include <mcf/network.h>
+#include <mcf/graph.h>
 #include <stdio.h>
 
 // 1->2 7

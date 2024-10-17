@@ -1,4 +1,4 @@
-#include <mcf/network.h>
+#include <mcf/graph.h>
 
 static void graph_push_outbound_arc(struct graph *graph, const struct arc arc,
 				    const struct node node) {

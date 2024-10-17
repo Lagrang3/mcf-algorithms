@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <ccan/tal/tal.h>
 #include <inttypes.h>
-#include <mcf/network.h>
+#include <mcf/graph.h>
 #include <stdio.h>
 
 #define MAX_NODES 10
