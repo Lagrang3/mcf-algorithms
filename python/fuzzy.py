@@ -19,6 +19,7 @@ def generate_problem(N_nodes, N_arcs, source, target, M_cap, M_cost):
 
     start_nodes = np.array([ i for (i,j) in G.edges() ])
     end_nodes = np.array([ j for (i,j) in G.edges() ])
+    N_arcs = len(G.edges())
 
     capacity = np.random.randint(1, M_cap+1, size=N_arcs)
     cost = np.random.randint(M_cost+1, size=N_arcs)
