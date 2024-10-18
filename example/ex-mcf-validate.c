@@ -7,17 +7,19 @@
 
 int next_bit(s64 x) {
 	int b;
-	for (b = 0; (1LL << b) < x; b++)
+	for (b = 0; (1LL << b) <= x; b++)
 		;
 	return b;
 }
 
-int main() {
-	tal_t *ctx = tal(NULL, tal_t);
-	assert(ctx);
+static bool solve_case(const tal_t *ctx) {
+	static int c = 0;
+	c++;
+	tal_t *this_ctx = tal(ctx, tal_t);
 
 	int N_nodes, N_arcs;
 	scanf("%d %d\n", &N_nodes, &N_arcs);
+	if (N_nodes == 0 && N_arcs == 0) goto fail;
 
 	const int MAX_NODES = N_nodes;
 	const int DUAL_BIT = next_bit(N_arcs);
@@ -57,6 +59,23 @@ int main() {
 
 	const s64 total_cost = flow_cost(graph, capacity, cost);
 	assert(total_cost == best_cost);
+
+	tal_free(this_ctx);
+	return true;
+
+fail:
+	tal_free(this_ctx);
+	return false;
+}
+
+int main() {
+	tal_t *ctx = tal(NULL, tal_t);
+	assert(ctx);
+
+	/* One test case after another. The last test case has N number of nodes
+	 * and arcs equal to 0 and must be ignored. */
+	while (solve_case(ctx))
+		;
 
 	ctx = tal_free(ctx);
 	return 0;

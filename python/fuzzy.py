@@ -46,12 +46,13 @@ def generate_problem(N_nodes, N_arcs, source, target, M_cap, M_cost):
     
     return N_nodes, N_arcs, start_nodes, end_nodes, capacity, cost, amount, best_cost
 
-source = 0
-target = 1
-N = 5
-M = 10
-MAXCOST = 10
-MAXCAP = 10
+import sys
+
+source, target, N, M, MAXCOST, MAXCAP = map(int, sys.argv[1:])
+
+if N==0:
+    print("0 0")
+    exit()
 
 N_nodes, N_arcs, start_nodes, end_nodes, capacity, cost, amount, best_cost = generate_problem(N, M, source, target, MAXCAP, MAXCOST)
 
