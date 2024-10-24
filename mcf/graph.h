@@ -94,6 +94,12 @@ static inline struct node arc_head(const struct graph *graph,
 	return graph->arc_tail[dual.idx];
 }
 
+/* We use an arc array but not all arcs in that array do exist in the graph. */
+static inline bool arc_enabled(const struct graph *graph, const struct arc arc)
+{
+	return graph->arc_tail[arc.idx].idx < graph->max_num_nodes;
+}
+
 /* Used to loop over the arcs that exit a node.
  *
  * for example:
@@ -144,8 +150,12 @@ static inline struct arc node_rev_adjacency_next(const struct graph *graph,
 			node_adjacency_next(graph, arc_dual(graph, arc)));
 }
 
-struct arc graph_add_arc(struct graph *graph, const struct arc arc,
-			 const struct node from, const struct node to);
+/* This call adds an arc to the graph, it adds also the dual automatically.
+ * An arc cannot be added twice, if the caller tries to do add the same arc
+ * twice the second call is ignored.
+ * The call fails if the arc or its dual do not fit into max_num_arcs. */
+bool graph_add_arc(struct graph *graph, const struct arc arc,
+		   const struct node from, const struct node to);
 
 /* Creates a graph object. Nodes and arcs are indexed from 0 to max_num_nodes-1
  * and max_num_arcs-1 respectively. The max_num_arcs should be big enough to

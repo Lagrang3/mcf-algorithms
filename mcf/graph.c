@@ -5,6 +5,11 @@ static void graph_push_outbound_arc(struct graph *graph, const struct arc arc,
 				    const struct node node)
 {
 	assert(arc.idx < tal_count(graph->arc_tail));
+
+	/* arc is already added, skip */
+	if (graph->arc_tail[arc.idx].idx != INVALID_INDEX)
+		return;
+
 	graph->arc_tail[arc.idx] = node;
 
 	assert(node.idx < tal_count(graph->node_adjacency_first));
@@ -17,17 +22,21 @@ static void graph_push_outbound_arc(struct graph *graph, const struct arc arc,
 	graph->node_adjacency_first[node.idx] = arc;
 }
 
-struct arc graph_add_arc(struct graph *graph, const struct arc arc,
-			 const struct node from, const struct node to)
+bool graph_add_arc(struct graph *graph, const struct arc arc,
+		   const struct node from, const struct node to)
 {
 	assert(from.idx < graph->max_num_nodes);
 	assert(to.idx < graph->max_num_nodes);
-	assert(arc.idx < graph->max_num_arcs);
+
+	const struct arc dual = arc_dual(graph, arc);
+
+	if (arc.idx >= graph->max_num_arcs || dual.idx >= graph->max_num_arcs)
+		return false;
 
 	graph_push_outbound_arc(graph, arc, from);
-	graph_push_outbound_arc(graph, arc_dual(graph, arc), to);
+	graph_push_outbound_arc(graph, dual, to);
 
-	return arc;
+	return true;
 }
 
 struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
@@ -36,7 +45,7 @@ struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 	struct graph *graph;
 	graph = tal(ctx, struct graph);
 
-	// bad allocation of graph
+	/* bad allocation of graph */
 	if (!graph)
 		return graph;
 
@@ -50,6 +59,7 @@ struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 	graph->node_adjacency_next =
 	    tal_arr(graph, struct arc, graph->max_num_arcs);
 
+	/* bad allocation of graph components */
 	if (!graph->arc_tail || !graph->node_adjacency_first ||
 	    !graph->node_adjacency_next) {
 		return tal_free(graph);
@@ -57,11 +67,11 @@ struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 
 	/* initialize with invalid indexes so that we know these slots have
 	 * never been used, eg. arc/node is newly created */
-	for (size_t i = 0; i < tal_count(graph->arc_tail); i++)
+	for (size_t i = 0; i < graph->max_num_arcs; i++)
 		graph->arc_tail[i] = node_obj(INVALID_INDEX);
-	for (size_t i = 0; i < tal_count(graph->node_adjacency_first); i++)
+	for (size_t i = 0; i < graph->max_num_nodes; i++)
 		graph->node_adjacency_first[i] = arc_obj(INVALID_INDEX);
-	for (size_t i = 0; i < tal_count(graph->node_adjacency_next); i++)
+	for (size_t i = 0; i < graph->max_num_nodes; i++)
 		graph->node_adjacency_next[i] = arc_obj(INVALID_INDEX);
 
 	return graph;
