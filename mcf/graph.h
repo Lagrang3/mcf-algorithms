@@ -53,15 +53,6 @@ struct graph {
 	size_t arc_dual_bit;
 };
 
-// /* A graph with a linear cost function and a capacity constraint. */
-// struct linear_network {
-// 	struct graph *graph;
-//
-// 	/* Cost and capacity constraints on arcs. */
-// 	s64 *cost;
-// 	s64 *capacity;
-// };
-
 //////////////////////////////////////////////////////////////////////////////
 
 static inline size_t graph_max_num_arcs(const struct graph *graph)
@@ -103,7 +94,22 @@ static inline struct node arc_head(const struct graph *graph,
 	return graph->arc_tail[dual.idx];
 }
 
-/* Used to loop over the arcs that exit a node. */
+/* Used to loop over the arcs that exit a node.
+ *
+ * for example:
+ *
+ * void show(struct graph *graph, struct node node) {
+ * 	printf("Showing node %" PRIu32 "\n", node.idx);
+ * 	for (struct arc arc = node_adjacency_begin(graph, node);
+ * 	     !node_adjacency_end(arc);
+ * 	     arc = node_adjacency_next(graph, arc)) {
+ * 		printf("arc id: %" PRIu32 ", (%" PRIu32 " -> %" PRIu32 ")\n",
+ * 		       arc.idx,
+ * 		       arc_tail(graph, arc).idx,
+ * 		       arc_head(graph, arc).idx);
+ * 	}
+ * }
+ * */
 static inline struct arc node_adjacency_begin(const struct graph *graph,
 					      const struct node node)
 {
@@ -141,6 +147,11 @@ static inline struct arc node_rev_adjacency_next(const struct graph *graph,
 struct arc graph_add_arc(struct graph *graph, const struct arc arc,
 			 const struct node from, const struct node to);
 
+/* Creates a graph object. Nodes and arcs are indexed from 0 to max_num_nodes-1
+ * and max_num_arcs-1 respectively. The max_num_arcs should be big enough to
+ * accomodate also the dual arcs, ie. if the maximum index for a problem arc is
+ * I then Idual = I^(1<<arc_dual_bit) must be a valid arc index
+ * Idual<max_num_arcs. */
 struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 			const size_t max_num_arcs, const size_t arc_dual_bit);
 

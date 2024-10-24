@@ -1,5 +1,6 @@
 #include <mcf/graph.h>
 
+/* in the background add the actual arc or dual arc */
 static void graph_push_outbound_arc(struct graph *graph, const struct arc arc,
 				    const struct node node)
 {
@@ -54,6 +55,8 @@ struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 		return tal_free(graph);
 	}
 
+	/* initialize with invalid indexes so that we know these slots have
+	 * never been used, eg. arc/node is newly created */
 	for (size_t i = 0; i < tal_count(graph->arc_tail); i++)
 		graph->arc_tail[i] = node_obj(INVALID_INDEX);
 	for (size_t i = 0; i < tal_count(graph->node_adjacency_first); i++)
@@ -63,4 +66,3 @@ struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 
 	return graph;
 }
-

@@ -1,6 +1,9 @@
 #ifndef ALGORITHM_H
 #define ALGORITHM_H
 
+/* Implementation of network algorithms: shortests path, minimum cost flow, etc.
+ */
+
 #include <mcf/graph.h>
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -23,10 +26,15 @@
  * precondition:
  * |capacity|=graph_max_num_arcs
  * |prev|=graph_max_num_nodes
+ *
+ * The destination is only used as a stopping condition, if destination is
+ * passed with an invalid idx then the algorithm will produce a discovery tree
+ * of all reacheable nodes from the source.
  * */
 bool BFS_path(const tal_t *ctx, const struct graph *graph,
 	      const struct node source, const struct node destination,
 	      const s64 *capacity, const s64 cap_threshold, struct arc *prev);
+
 
 /* Computes the distance from the source to every other node in the network
  * using Dijkstra's algorithm.
@@ -62,11 +70,12 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		   const s64 *cost, const s64 *potential, struct arc *prev,
 		   s64 *distance);
 
+
 /* Finds any flow that satisfy the capacity constraints:
  * 	flow[i] <= capacity[i]
- * and balance constraints:
- * 	-balance[source] = balance[destination] = amount
- * 	balance[node] = 0 for every other node
+ * and supply/demand constraints:
+ * 	supply[source] = demand[destination] = amount
+ * 	supply/demand[node] = 0 for every other node
  *
  * It uses simple augmenting paths algorithm.
  *
@@ -76,6 +85,7 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
  * @source: source node
  * @destination: destination node
  * @capacity: arcs capacity
+ * @amount: supply/demand
  *
  * output:
  * @capacity: residual capacity
@@ -90,7 +100,8 @@ bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
 			 const struct node destination, s64 *capacity,
 			 s64 amount);
 
-/* Computes the balance of a node.
+
+/* Computes the balance of a node, ie. the incoming flows minus the outgoing.
  *
  * @graph: topology
  * @node: node
@@ -106,11 +117,12 @@ bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
 s64 node_balance(const struct graph *graph, const struct node node,
 		 const s64 *capacity);
 
+
 /* Finds the minimum cost flow that satisfy the capacity constraints:
  * 	flow[i] <= capacity[i]
- * and balance constraints:
- * 	-balance[source] = balance[destination] = amount
- * 	balance[node] = 0 for every other node
+ * and supply/demand constraints:
+ * 	supply[source] = demand[destination] = amount
+ * 	supply/demand[node] = 0 for every other node
  *
  * It uses successive shortest path algorithm.
  *

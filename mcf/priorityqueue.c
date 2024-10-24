@@ -31,8 +31,8 @@ static void priorityqueue_item_mover(void *const dst, const void *const src) {
 	u32 src_idx = *(u32 *)src;
 	*(u32 *)dst = src_idx;
 
-	// we keep track of the pointer position of each element in the heap,
-	// for easy update.
+	/* we keep track of the pointer position of each element in the heap,
+	 * for easy update. */
 	global_priorityqueue->heapptr[src_idx] = dst;
 }
 
@@ -40,14 +40,14 @@ static void priorityqueue_item_mover(void *const dst, const void *const src) {
 struct priorityqueue *priorityqueue_new(const tal_t *ctx,
 					size_t max_num_nodes) {
 	struct priorityqueue *q = tal(ctx, struct priorityqueue);
-	// check allocation
+	/* check allocation */
 	if (!q) return NULL;
 
 	q->value = tal_arr(q, s64, max_num_nodes);
 	q->base = tal_arr(q, u32, max_num_nodes);
 	q->heapptr = tal_arrz(q, u32 *, max_num_nodes);
 
-	// check allocation
+	/* check allocation */
 	if (!q->value || !q->base || !q->heapptr) return tal_free(q);
 
 	q->heapsize = 0;
@@ -90,7 +90,7 @@ void priorityqueue_update(struct priorityqueue *q, u32 key, s64 value) {
 	assert(key < priorityqueue_maxsize(q));
 
 	if (!q->heapptr[key]) {
-		// not in the heap
+		/* not in the heap */
 		priorityqueue_append(q, key, value);
 		global_priorityqueue = q;
 		gheap_restore_heap_after_item_increase(
@@ -101,7 +101,7 @@ void priorityqueue_update(struct priorityqueue *q, u32 key, s64 value) {
 	}
 
 	if (q->value[key] > value) {
-		// value decrease
+		/* value decrease */
 		q->value[key] = value;
 
 		global_priorityqueue = q;
@@ -110,7 +110,7 @@ void priorityqueue_update(struct priorityqueue *q, u32 key, s64 value) {
 		    q->heapptr[key] - q->base);
 		global_priorityqueue = NULL;
 	} else {
-		// value increase
+		/* value increase */
 		q->value[key] = value;
 
 		global_priorityqueue = q;
@@ -119,9 +119,9 @@ void priorityqueue_update(struct priorityqueue *q, u32 key, s64 value) {
 		    q->heapptr[key] - q->base);
 		global_priorityqueue = NULL;
 	}
-	// assert(gheap_is_heap(&q->gheap_ctx,
-	//                      q->base,
-	// 		     priorityqueue_size()));
+	/* assert(gheap_is_heap(&q->gheap_ctx,
+	 *                      q->base,
+	 * 		        priorityqueue_size())); */
 }
 
 u32 priorityqueue_top(const struct priorityqueue *q) {

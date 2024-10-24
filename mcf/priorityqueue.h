@@ -1,5 +1,8 @@
 #ifndef PRIORITYQUEUE_H
 #define PRIORITYQUEUE_H
+
+/* Defines a priority queue using gheap. */
+
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <gheap.h>

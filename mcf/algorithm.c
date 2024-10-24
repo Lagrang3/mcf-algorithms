@@ -21,7 +21,7 @@ bool BFS_path(const tal_t *ctx, const struct graph *graph,
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 
-	// check preconditions
+	/* check preconditions */
 	if (!graph || source.idx == INVALID_INDEX || !capacity || !prev)
 		goto finish;
 
@@ -53,13 +53,13 @@ bool BFS_path(const tal_t *ctx, const struct graph *graph,
 		for (struct arc arc = node_adjacency_begin(graph, cur);
 		     !node_adjacency_end(arc);
 		     arc = node_adjacency_next(graph, arc)) {
-			// check if this arc is traversable
+			/* check if this arc is traversable */
 			if (capacity[arc.idx] < cap_threshold)
 				continue;
 
 			const struct node next = arc_head(graph, arc);
 
-			// if that node has been seen previously
+			/* if that node has been seen previously */
 			if (prev[next.idx].idx != INVALID_INDEX)
 				continue;
 
@@ -87,7 +87,7 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 	tal_t *this_ctx = tal(ctx, tal_t);
 
-	// check preconditions
+	/* check preconditions */
 	if (!graph || source.idx == INVALID_INDEX || !cost || !capacity ||
 	    !prev || !distance)
 		goto finish;
@@ -102,12 +102,12 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 	    tal_count(distance) != max_num_nodes)
 		goto finish;
 
-	// FIXME: maybe this is unnecessary
+	/* FIXME: maybe this is unnecessary */
 	bitmap *visited = tal_arrz(this_ctx, bitmap,
 				   BITMAP_NWORDS(graph_max_num_nodes(graph)));
 
 	if (!visited)
-		// bad allocation
+		/* bad allocation */
 		goto finish;
 
 	for (size_t i = 0; i < tal_count(prev); ++i)
@@ -124,7 +124,7 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		const u32 cur = priorityqueue_top(q);
 		priorityqueue_pop(q);
 
-		// FIXME: maybe this is unnecessary
+		/* FIXME: maybe this is unnecessary */
 		if (bitmap_test_bit(visited, cur))
 			continue;
 		bitmap_set_bit(visited, cur);
@@ -139,7 +139,7 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 			 node_adjacency_begin(graph, node_obj(cur));
 		     !node_adjacency_end(arc);
 		     arc = node_adjacency_next(graph, arc)) {
-			// check if this arc is traversable
+			/* check if this arc is traversable */
 			if (capacity[arc.idx] < cap_threshold)
 				continue;
 
@@ -148,7 +148,7 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 			const s64 cij = cost[arc.idx] - potential[cur] +
 					potential[next.idx];
 
-			// Dijkstra only works with non-negative weights
+			/* Dijkstra only works with non-negative weights */
 			assert(cij >= 0);
 
 			if (dijkstra_distance[next.idx] <=
@@ -227,7 +227,7 @@ bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 
-	// check preconditions
+	/* check preconditions */
 	if (amount < 0)
 		goto finish;
 
@@ -245,16 +245,16 @@ bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
 		goto finish;
 
 	while (amount > 0) {
-		// find a path from source to target
+		/* find a path from source to target */
 		if (!BFS_path(this_ctx, graph, source, destination, capacity, 1,
 			      prev))
 			goto finish;
 
-		// traverse the path and see how much flow we can send
+		/* traverse the path and see how much flow we can send */
 		s64 delta = get_augmenting_flow(graph, source, destination,
 						capacity, prev);
 
-		// commit that flow to the path
+		/* commit that flow to the path */
 		delta = MIN(amount, delta);
 		assert(delta > 0 && delta <= amount);
 
