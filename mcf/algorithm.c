@@ -22,14 +22,14 @@ bool BFS_path(const tal_t *ctx, const struct graph *graph,
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 
 	/* check preconditions */
-	if (!graph || source.idx == INVALID_INDEX || !capacity || !prev)
+	if (!graph || source.idx >= max_num_nodes || !capacity || !prev)
 		goto finish;
 
 	if (tal_count(capacity) != max_num_arcs ||
 	    tal_count(prev) != max_num_nodes)
 		goto finish;
 
-	for (size_t i = 0; i < tal_count(prev); ++i)
+	for (size_t i = 0; i < max_num_nodes; i++)
 		prev[i].idx = INVALID_INDEX;
 
 	LQUEUE(struct queue_data, ql) myqueue = LQUEUE_INIT;
@@ -88,12 +88,12 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 	tal_t *this_ctx = tal(ctx, tal_t);
 
 	/* check preconditions */
-	if (!graph || source.idx == INVALID_INDEX || !cost || !capacity ||
+	if (!graph || source.idx >=max_num_nodes || !cost || !capacity ||
 	    !prev || !distance)
 		goto finish;
 
 	/* if prune is true then the destination cannot be invalid */
-	if (destination.idx == INVALID_INDEX && prune)
+	if (destination.idx >=max_num_nodes && prune)
 		goto finish;
 
 	if (tal_count(cost) != max_num_arcs ||
@@ -104,13 +104,13 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 
 	/* FIXME: maybe this is unnecessary */
 	bitmap *visited = tal_arrz(this_ctx, bitmap,
-				   BITMAP_NWORDS(graph_max_num_nodes(graph)));
+				   BITMAP_NWORDS(max_num_nodes));
 
 	if (!visited)
 		/* bad allocation */
 		goto finish;
 
-	for (size_t i = 0; i < tal_count(prev); ++i)
+	for (size_t i = 0; i < max_num_nodes; ++i)
 		prev[i].idx = INVALID_INDEX;
 
 	struct priorityqueue *q;
@@ -186,7 +186,7 @@ static s64 get_augmenting_flow(const struct graph *graph,
 
 	struct node cur = target;
 	while (cur.idx != source.idx) {
-		assert(cur.idx < tal_count(prev));
+		assert(cur.idx < max_num_nodes);
 		const struct arc arc = prev[cur.idx];
 		assert(arc.idx < max_num_arcs);
 		flow = MIN(flow, capacity[arc.idx]);
@@ -250,7 +250,7 @@ static void augment_flow(const struct graph *graph,
 	int path_length = 0;
 
 	while (cur.idx != source.idx) {
-		assert(cur.idx < tal_count(prev));
+		assert(cur.idx < max_num_nodes);
 		const struct arc arc = prev[cur.idx];
 
 		sendflow(graph, arc, flow, capacity, excess);
@@ -283,8 +283,8 @@ bool simple_feasibleflow(const tal_t *ctx,
 	if (amount < 0)
 		goto finish;
 
-	if (!graph || source.idx == INVALID_INDEX ||
-	    destination.idx == INVALID_INDEX || !capacity)
+	if (!graph || source.idx >= max_num_nodes ||
+	    destination.idx >= max_num_nodes || !capacity)
 		goto finish;
 
 	if (tal_count(capacity) != max_num_arcs)
