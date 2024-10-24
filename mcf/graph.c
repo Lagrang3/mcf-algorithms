@@ -1,7 +1,8 @@
 #include <mcf/graph.h>
 
 static void graph_push_outbound_arc(struct graph *graph, const struct arc arc,
-				    const struct node node) {
+				    const struct node node)
+{
 	assert(arc.idx < tal_count(graph->arc_tail));
 	graph->arc_tail[arc.idx] = node;
 
@@ -16,7 +17,8 @@ static void graph_push_outbound_arc(struct graph *graph, const struct arc arc,
 }
 
 struct arc graph_add_arc(struct graph *graph, const struct arc arc,
-			 const struct node from, const struct node to) {
+			 const struct node from, const struct node to)
+{
 	assert(from.idx < graph->max_num_nodes);
 	assert(to.idx < graph->max_num_nodes);
 	assert(arc.idx < graph->max_num_arcs);
@@ -28,12 +30,14 @@ struct arc graph_add_arc(struct graph *graph, const struct arc arc,
 }
 
 struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
-			const size_t max_num_arcs, const size_t arc_dual_bit) {
+			const size_t max_num_arcs, const size_t arc_dual_bit)
+{
 	struct graph *graph;
 	graph = tal(ctx, struct graph);
 
 	// bad allocation of graph
-	if (!graph) return graph;
+	if (!graph)
+		return graph;
 
 	graph->max_num_arcs = max_num_arcs;
 	graph->max_num_nodes = max_num_nodes;

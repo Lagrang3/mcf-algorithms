@@ -21,11 +21,13 @@ struct node {
 	u32 idx;
 };
 
-static inline struct arc arc_obj(u32 index) {
+static inline struct arc arc_obj(u32 index)
+{
 	struct arc arc = {.idx = index};
 	return arc;
 }
-static inline struct node node_obj(u32 index) {
+static inline struct node node_obj(u32 index)
+{
 	struct node node = {.idx = index};
 	return node;
 }
@@ -62,34 +64,40 @@ struct graph {
 
 //////////////////////////////////////////////////////////////////////////////
 
-static inline size_t graph_max_num_arcs(const struct graph *graph) {
+static inline size_t graph_max_num_arcs(const struct graph *graph)
+{
 	return graph->max_num_arcs;
 }
-static inline size_t graph_max_num_nodes(const struct graph *graph) {
+static inline size_t graph_max_num_nodes(const struct graph *graph)
+{
 	return graph->max_num_nodes;
 }
 
 /* Give me the dual of an arc. */
-static inline struct arc arc_dual(const struct graph *graph, struct arc arc) {
+static inline struct arc arc_dual(const struct graph *graph, struct arc arc)
+{
 	arc.idx ^= (1U << graph->arc_dual_bit);
 	return arc;
 }
 
 /* Is this arc a dual? */
-static inline bool arc_is_dual(const struct graph *graph, struct arc arc) {
+static inline bool arc_is_dual(const struct graph *graph, struct arc arc)
+{
 	return (arc.idx & (1U << graph->arc_dual_bit)) != 0;
 }
 
 /* Give me the node at the tail of an arc. */
 static inline struct node arc_tail(const struct graph *graph,
-				   const struct arc arc) {
+				   const struct arc arc)
+{
 	assert(arc.idx < tal_count(graph->arc_tail));
 	return graph->arc_tail[arc.idx];
 }
 
 /* Give me the node at the head of an arc. */
 static inline struct node arc_head(const struct graph *graph,
-				   const struct arc arc) {
+				   const struct arc arc)
+{
 	const struct arc dual = arc_dual(graph, arc);
 	assert(dual.idx < tal_count(graph->arc_tail));
 	return graph->arc_tail[dual.idx];
@@ -97,29 +105,35 @@ static inline struct node arc_head(const struct graph *graph,
 
 /* Used to loop over the arcs that exit a node. */
 static inline struct arc node_adjacency_begin(const struct graph *graph,
-					      const struct node node) {
+					      const struct node node)
+{
 	assert(node.idx < tal_count(graph->node_adjacency_first));
 	return graph->node_adjacency_first[node.idx];
 }
-static inline bool node_adjacency_end(const struct arc arc) {
+static inline bool node_adjacency_end(const struct arc arc)
+{
 	return arc.idx == INVALID_INDEX;
 }
 static inline struct arc node_adjacency_next(const struct graph *graph,
-					     const struct arc arc) {
+					     const struct arc arc)
+{
 	assert(arc.idx < tal_count(graph->node_adjacency_next));
 	return graph->node_adjacency_next[arc.idx];
 }
 
 /* Used to loop over the arcs that enter a node. */
 static inline struct arc node_rev_adjacency_begin(const struct graph *graph,
-						  const struct node node) {
+						  const struct node node)
+{
 	return arc_dual(graph, node_adjacency_begin(graph, node));
 }
-static inline bool node_rev_adjacency_end(const struct arc arc) {
+static inline bool node_rev_adjacency_end(const struct arc arc)
+{
 	return arc.idx == INVALID_INDEX;
 }
 static inline struct arc node_rev_adjacency_next(const struct graph *graph,
-						 const struct arc arc) {
+						 const struct arc arc)
+{
 	return arc_dual(graph,
 			node_adjacency_next(graph, arc_dual(graph, arc)));
 }

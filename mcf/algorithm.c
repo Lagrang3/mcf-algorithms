@@ -14,7 +14,8 @@ struct queue_data {
 
 bool BFS_path(const tal_t *ctx, const struct graph *graph,
 	      const struct node source, const struct node destination,
-	      const s64 *capacity, const s64 cap_threshold, struct arc *prev) {
+	      const s64 *capacity, const s64 cap_threshold, struct arc *prev)
+{
 	tal_t *this_ctx = tal(ctx, tal_t);
 	bool target_found = false;
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
@@ -53,12 +54,14 @@ bool BFS_path(const tal_t *ctx, const struct graph *graph,
 		     !node_adjacency_end(arc);
 		     arc = node_adjacency_next(graph, arc)) {
 			// check if this arc is traversable
-			if (capacity[arc.idx] < cap_threshold) continue;
+			if (capacity[arc.idx] < cap_threshold)
+				continue;
 
 			const struct node next = arc_head(graph, arc);
 
 			// if that node has been seen previously
-			if (prev[next.idx].idx != INVALID_INDEX) continue;
+			if (prev[next.idx].idx != INVALID_INDEX)
+				continue;
 
 			prev[next.idx] = arc;
 
@@ -77,7 +80,8 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		   const struct node source, const struct node destination,
 		   bool prune, const s64 *capacity, const s64 cap_threshold,
 		   const s64 *cost, const s64 *potential, struct arc *prev,
-		   s64 *distance) {
+		   s64 *distance)
+{
 	bool target_found = false;
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
@@ -89,7 +93,8 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		goto finish;
 
 	/* if prune is true then the destination cannot be invalid */
-	if (destination.idx == INVALID_INDEX && prune) goto finish;
+	if (destination.idx == INVALID_INDEX && prune)
+		goto finish;
 
 	if (tal_count(cost) != max_num_arcs ||
 	    tal_count(capacity) != max_num_arcs ||
@@ -120,12 +125,14 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		priorityqueue_pop(q);
 
 		// FIXME: maybe this is unnecessary
-		if (bitmap_test_bit(visited, cur)) continue;
+		if (bitmap_test_bit(visited, cur))
+			continue;
 		bitmap_set_bit(visited, cur);
 
 		if (cur == destination.idx) {
 			target_found = true;
-			if (prune) break;
+			if (prune)
+				break;
 		}
 
 		for (struct arc arc =
@@ -133,7 +140,8 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		     !node_adjacency_end(arc);
 		     arc = node_adjacency_next(graph, arc)) {
 			// check if this arc is traversable
-			if (capacity[arc.idx] < cap_threshold) continue;
+			if (capacity[arc.idx] < cap_threshold)
+				continue;
 
 			const struct node next = arc_head(graph, arc);
 
@@ -165,7 +173,8 @@ finish:
 static s64 get_augmenting_flow(const struct graph *graph,
 			       const struct node source,
 			       const struct node target, const s64 *capacity,
-			       const struct arc *prev) {
+			       const struct arc *prev)
+{
 	s64 flow = INFINITE;
 
 	struct node cur = target;
@@ -186,7 +195,8 @@ static s64 get_augmenting_flow(const struct graph *graph,
 /* Augment a `flow` amount along the path defined by `prev`.*/
 static void augment_flow(const struct graph *graph, const struct node source,
 			 const struct node target, const struct arc *prev,
-			 s64 *capacity, s64 flow) {
+			 s64 *capacity, s64 flow)
+{
 	struct node cur = target;
 
 	while (cur.idx != source.idx) {
@@ -211,24 +221,28 @@ static void augment_flow(const struct graph *graph, const struct node source,
 bool simple_feasibleflow(const tal_t *ctx, const struct graph *graph,
 			 const struct node source,
 			 const struct node destination, s64 *capacity,
-			 s64 amount) {
+			 s64 amount)
+{
 	tal_t *this_ctx = tal(ctx, tal_t);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 
 	// check preconditions
-	if (amount < 0) goto finish;
+	if (amount < 0)
+		goto finish;
 
 	if (!graph || source.idx == INVALID_INDEX ||
 	    destination.idx == INVALID_INDEX || !capacity)
 		goto finish;
 
-	if (tal_count(capacity) != max_num_arcs) goto finish;
+	if (tal_count(capacity) != max_num_arcs)
+		goto finish;
 
 	/* path information
 	 * prev: is the id of the arc that lead to the node. */
 	struct arc *prev = tal_arr(this_ctx, struct arc, max_num_nodes);
-	if (!prev) goto finish;
+	if (!prev)
+		goto finish;
 
 	while (amount > 0) {
 		// find a path from source to target
@@ -254,7 +268,8 @@ finish:
 }
 
 s64 node_balance(const struct graph *graph, const struct node node,
-		 const s64 *capacity) {
+		 const s64 *capacity)
+{
 	s64 balance = 0;
 
 	for (struct arc arc = node_adjacency_begin(graph, node);
@@ -271,13 +286,15 @@ s64 node_balance(const struct graph *graph, const struct node node,
 
 bool simple_mcf(const tal_t *ctx, const struct graph *graph,
 		const struct node source, const struct node destination,
-		s64 *capacity, s64 amount, const s64 *cost) {
+		s64 *capacity, s64 amount, const s64 *cost)
+{
 	tal_t *this_ctx = tal(ctx, tal_t);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 	s64 remaining_amount = amount;
 
-	if (amount < 0) goto finish;
+	if (amount < 0)
+		goto finish;
 
 	if (!graph || source.idx == INVALID_INDEX ||
 	    destination.idx == INVALID_INDEX || !capacity || !cost)
@@ -291,7 +308,8 @@ bool simple_mcf(const tal_t *ctx, const struct graph *graph,
 	s64 *distance = tal_arrz(this_ctx, s64, max_num_nodes);
 	s64 *potential = tal_arrz(this_ctx, s64, max_num_nodes);
 
-	if (!prev || !distance || !potential) goto finish;
+	if (!prev || !distance || !potential)
+		goto finish;
 
 	while (remaining_amount > 0) {
 		if (!dijkstra_path(this_ctx, graph, source, destination,
@@ -325,7 +343,8 @@ finish:
 	return remaining_amount == 0;
 }
 
-s64 flow_cost(const struct graph *graph, const s64 *capacity, const s64 *cost) {
+s64 flow_cost(const struct graph *graph, const s64 *capacity, const s64 *cost)
+{
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	s64 total_cost = 0;
 
@@ -337,7 +356,8 @@ s64 flow_cost(const struct graph *graph, const s64 *capacity, const s64 *cost) {
 		struct arc arc = {.idx = i};
 		struct arc dual = arc_dual(graph, arc);
 
-		if (arc_is_dual(graph, arc)) continue;
+		if (arc_is_dual(graph, arc))
+			continue;
 
 		total_cost += capacity[dual.idx] * cost[arc.idx];
 	}
