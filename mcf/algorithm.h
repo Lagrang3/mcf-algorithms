@@ -178,4 +178,9 @@ bool mcf_refinement(const tal_t *ctx,
 		    const s64 *cost,
 		    s64 *potential);
 
+/* An exact solver to the Fixed Charge Network Flow Problem (FCNFP).
+ * O(2^n) */
+bool solve_fcnfp(const tal_t *ctx, const struct graph *graph, s64 *excess,
+		 s64 *capacity, const s64 *cost, const s64 *charge);
+
 #endif /* ALGORITHM_H */

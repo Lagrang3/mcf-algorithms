@@ -695,3 +695,95 @@ s64 flow_cost(const struct graph *graph, const s64 *capacity, const s64 *cost)
 	}
 	return total_cost;
 }
+
+/* Solve the FCNFP subproblem, ie. a MCF with some arcs disabled. */
+static bool solve_fcnfp_subproblem(const tal_t *ctx, const struct graph *graph,
+				   s64 *excess, s64 *capacity, s64 *potential,
+				   const s64 *cost, u64 bitmap,
+				   const struct arc *arc_arr, size_t edge_count)
+{
+	for (size_t i = 0; i < edge_count; i++) {
+		struct arc arc = arc_arr[i];
+		struct arc dual = arc_dual(graph, arc);
+
+		assert(!arc_is_dual(graph, arc));
+		if (!(bitmap & (1 << i))) {
+			capacity[arc.idx] = capacity[dual.idx] = 0;
+		}
+	}
+	return mcf_refinement(ctx, graph, excess, capacity, cost, potential);
+}
+
+/* An exact solver to the Fixed Charge Network Flow Problem (FCNFP).
+ * O(2^n) */
+bool solve_fcnfp(const tal_t *ctx, const struct graph *graph, s64 *excess,
+		 s64 *capacity, const s64 *cost, const s64 *charge)
+{
+	tal_t *this_ctx = tal(ctx, tal_t);
+	bool found = false;
+	const u32 MAX_TRIALS_BITS = 20;
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	const size_t max_num_nodes = graph_max_num_nodes(graph);
+	struct arc *myarcs = tal_arrz(this_ctx, struct arc, max_num_arcs);
+
+	int count_edges = 0;
+	for (u32 i = 0; i < max_num_arcs; i++) {
+		struct arc arc = {.idx = i};
+		if (arc_enabled(graph, arc) && !arc_is_dual(graph, arc))
+			myarcs[count_edges++] = arc;
+	}
+	assert(count_edges <= MAX_TRIALS_BITS);
+
+	u64 best_bitmap = 0;
+	s64 best_cost = INFINITE;
+
+	s64 *tmp_excess = tal_arrz(this_ctx, s64, max_num_nodes);
+	s64 *tmp_capacity = tal_arrz(this_ctx, s64, max_num_arcs);
+	s64 *tmp_potential = tal_arrz(this_ctx, s64, max_num_nodes);
+
+	for (u64 bm = 1; bm < (1 << count_edges); bm++) {
+		s64 charge_cost = 0;
+		s64 this_flow_cost = 0;
+		bool solved = false;
+
+		for (u32 i = 0; i < count_edges; i++)
+			if (bm & (1 << i)) {
+				struct arc arc = myarcs[i];
+				charge_cost += charge[arc.idx];
+			}
+
+		for (size_t i = 0; i < max_num_arcs; i++)
+			tmp_capacity[i] = capacity[i];
+		for (size_t i = 0; i < max_num_nodes; i++) {
+			tmp_excess[i] = excess[i];
+			tmp_potential[i] = 0;
+		}
+
+		solved = solve_fcnfp_subproblem(this_ctx, graph, tmp_excess,
+						tmp_capacity, tmp_potential,
+						cost, bm, myarcs, count_edges);
+		this_flow_cost = flow_cost(graph, tmp_capacity, cost);
+
+		if (solved) {
+			found = true;
+			if (best_cost > (charge_cost + this_flow_cost)) {
+				best_cost = charge_cost + this_flow_cost;
+				best_bitmap = bm;
+			}
+		}
+	}
+
+	/* a one more run to set the residual capacity */
+	if (found) {
+		for (size_t i = 0; i < max_num_nodes; i++)
+			tmp_potential[i] = 0;
+
+		bool ret = solve_fcnfp_subproblem(
+		    this_ctx, graph, excess, capacity, tmp_potential, cost,
+		    best_bitmap, myarcs, count_edges);
+		assert(ret);
+	}
+
+	tal_free(this_ctx);
+	return found;
+}
