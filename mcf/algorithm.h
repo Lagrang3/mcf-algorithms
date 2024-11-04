@@ -183,4 +183,33 @@ bool mcf_refinement(const tal_t *ctx,
 bool solve_fcnfp(const tal_t *ctx, const struct graph *graph, s64 *excess,
 		 s64 *capacity, const s64 *cost, const s64 *charge);
 
+
+/* An approximate solver to the Fixed Charge Network Flow Problem (FCNFP).
+ * Based on dynamic slope scaling by Kim et Pardalos,
+ * Operations Research Letters 24 (1999) 195--203
+ *
+ * Given a graph G=(N,A)
+ *
+ * minimize f(x) = sum_{(i,j) in A} f[i,j](x[i,j])
+ *
+ * where:
+ * 	f[i,j](x[i,j]) = x[i,j]>0 ?
+ * 		s[i,j] + c[i,j] * x[i,j] :
+ * 		0;
+ *
+ * 	// s[i,j]>=0 is constant arc activation cost
+ * 	// c[i,j]>= is a cost proportional to the flow
+ *
+ * such that:
+ * 	0<= x[i,j] <= u[i,j] // capacity constraints
+ *
+ * 	sum_{(i,j)} x[i,j] - sum_{(j,i)} x[j,i] = b[i]
+ * 	// flow conservation constraints
+ * 	// b[i]>0 is a supply node, b[i]<0 is a demand node
+ *
+ * */
+bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
+			     s64 *excess, s64 *capacity, const s64 *cost,
+			     const s64 *charge);
+
 #endif /* ALGORITHM_H */

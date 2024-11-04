@@ -787,3 +787,117 @@ bool solve_fcnfp(const tal_t *ctx, const struct graph *graph, s64 *excess,
 	tal_free(this_ctx);
 	return found;
 }
+
+/* An approximate solver to the Fixed Charge Network Flow Problem (FCNFP).
+ * Based on dynamic slope scaling by Kim et Pardalos,
+ * Operations Research Letters 24 (1999) 195--203
+ *
+ * Given a graph G=(N,A)
+ *
+ * minimize f(x) = sum_{(i,j) in A} f[i,j](x[i,j])
+ *
+ * where:
+ * 	f[i,j](x[i,j]) = x[i,j]>0 ?
+ * 		s[i,j] + c[i,j] * x[i,j] :
+ * 		0;
+ *
+ * 	// s[i,j]>=0 is constant arc activation cost
+ * 	// c[i,j]>= is a cost proportional to the flow
+ *
+ * such that:
+ * 	0<= x[i,j] <= u[i,j] // capacity constraints
+ *
+ * 	sum_{(i,j)} x[i,j] - sum_{(j,i)} x[j,i] = b[i]
+ * 	// flow conservation constraints
+ * 	// b[i]>0 is a supply node, b[i]<0 is a demand node
+ *
+ * */
+bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
+			     s64 *excess, s64 *capacity, const s64 *cost,
+			     const s64 *charge)
+{
+	bool solved = false;
+	const tal_t *this_ctx = tal(ctx, tal_t);
+	if (!this_ctx)
+		/*bad allocation*/
+		goto finish;
+
+	const size_t max_num_iterations = 100;
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	const size_t max_num_nodes = graph_max_num_nodes(graph);
+	s64 *potential = tal_arrz(this_ctx, s64, max_num_nodes);
+	s64 *mod_cost = tal_arrz(this_ctx, s64, max_num_arcs);
+	s64 *prev_capacity = tal_arrz(this_ctx, s64, max_num_arcs);
+	s64 *last_nonzero_cost = tal_arrz(this_ctx, s64, max_num_arcs);
+	if (!potential || !mod_cost || !prev_capacity || !last_nonzero_cost)
+		/*bad allocation*/
+		goto finish;
+
+	/* initial guess */
+	for (struct arc arc = {.idx = 0}; arc.idx < max_num_arcs; arc.idx++) {
+		if (!arc_enabled(graph, arc) || arc_is_dual(graph, arc))
+			continue;
+		mod_cost[arc.idx] =
+		    cost[arc.idx] + charge[arc.idx] / capacity[arc.idx];
+		last_nonzero_cost[arc.idx] = cost[arc.idx];
+
+		struct arc dual = arc_dual(graph, arc);
+		mod_cost[dual.idx] = -mod_cost[arc.idx];
+	}
+
+	for (size_t i = 0; i < max_num_iterations; i++) {
+		bool result, cap_equality;
+
+		result = mcf_refinement(this_ctx, graph, excess, capacity,
+					mod_cost, potential);
+
+		if (!result) {
+			/* solution is not feasible, this should only happen at
+			 * the first trial */
+			assert(i == 0);
+			goto finish;
+		}
+
+		/* we have at least one candidate solution */
+		solved = true;
+
+		/* check the stopping criterion */
+		cap_equality = true;
+		for (u32 idx = 0; idx < max_num_arcs; idx++)
+			if (prev_capacity[idx] != capacity[idx]) {
+				cap_equality = false;
+				break;
+			}
+		if (cap_equality)
+			break;
+
+		/* we don't stop, prepare for the next cycle */
+		memcpy(prev_capacity, capacity, sizeof(s64) * max_num_arcs);
+		for (struct arc arc = {.idx = 0}; arc.idx < max_num_arcs;
+		     arc.idx++) {
+			if (!arc_enabled(graph, arc) || arc_is_dual(graph, arc))
+				continue;
+			struct arc dual = arc_dual(graph, arc);
+
+			/* the flow x on an arc equals the residual capacity of
+			 * the dual */
+			const s64 x = capacity[dual.idx];
+
+			if (x > 0) {
+				mod_cost[arc.idx] =
+				    cost[arc.idx] + charge[arc.idx] / x;
+				last_nonzero_cost[arc.idx] = mod_cost[arc.idx];
+			} else {
+				/* there could be several ways to deal with the
+				 * case x=0, in this case we set the cost to the
+				 * last value with x!=0 */
+				mod_cost[arc.idx] = last_nonzero_cost[arc.idx];
+			}
+			mod_cost[dual.idx] = -mod_cost[arc.idx];
+		}
+	}
+
+finish:
+	tal_free(this_ctx);
+	return solved;
+}

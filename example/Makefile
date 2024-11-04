@@ -22,3 +22,5 @@ example/ex-mcf: example/ex-mcf.o
 example/ex-mcf-validate: example/ex-mcf-validate.o
 
 example/ex-fcmcf-validate: example/ex-fcmcf-validate.o
+
+example/ex-fcmcf-approx-validate: example/ex-fcmcf-approx-validate.o
