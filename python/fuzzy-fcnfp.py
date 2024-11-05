@@ -45,7 +45,7 @@ def linear_solver(start_nodes, end_nodes, capacity, cost, fixedcost, supply):
     status = solver.Solve()
     return int(solver.Objective().Value())
 
-def generate_problem(N_nodes, N_arcs, source, target, M_cap, M_cost):
+def generate_problem(N_nodes, N_arcs, source, target, M_cap, M_cost, M_charge):
     G = create_graph(N_nodes, N_arcs, source, target)
 
     start_nodes = np.array([ i for (i,j) in G.edges() ])
@@ -54,7 +54,7 @@ def generate_problem(N_nodes, N_arcs, source, target, M_cap, M_cost):
 
     capacity = np.random.randint(1, M_cap+1, size=N_arcs)
     cost = np.random.randint(M_cost+1, size=N_arcs)
-    fixedcost = np.random.randint(M_cost, size=N_arcs)
+    fixedcost = np.random.randint(M_charge+1, size=N_arcs)
 
     # find out the max flow
     smf = max_flow.SimpleMaxFlow()
@@ -83,13 +83,13 @@ def generate_problem(N_nodes, N_arcs, source, target, M_cap, M_cost):
 
 import sys
 
-source, target, N, M, MAXCOST, MAXCAP = map(int, sys.argv[1:])
+source, target, N, M, MAXCOST, MAXCHARGE, MAXCAP = map(int, sys.argv[1:])
 
 if N==0:
     print("0 0")
     exit()
 
-N_nodes, N_arcs, start_nodes, end_nodes, capacity, cost, fixedcost, amount, best_cost = generate_problem(N, M, source, target, MAXCAP, MAXCOST)
+N_nodes, N_arcs, start_nodes, end_nodes, capacity, cost, fixedcost, amount, best_cost = generate_problem(N, M, source, target, MAXCAP, MAXCOST, MAXCHARGE)
 
 print(N_nodes, N_arcs)
 for i, j, ca, co, fco in zip(start_nodes, end_nodes, capacity, cost, fixedcost):
