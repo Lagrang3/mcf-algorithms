@@ -71,6 +71,97 @@ To generate the data I used the following command line instructions
 bash generate-fcnfp.sh | tee dataset | example/ex-fcmcf-approx-validate | tee results | python scatter-plot-fcnfp.py
 ```
 
+# Payment optimization as a Fixed Charge Network Flow Problem with additional constraints
+
+A channel has several features the most relevant for a payment are
+```
+ppm: the proportional fee in parts per million
+base_msat: the base fee
+delay: htlc delay added in number of blocks
+capacity: channel's capacity
+L_low: lower bound on liquidity
+L_high: higher bound on liquidity
+prob_active: probability of being available to forward a payment
+```
+
+In our flow problem modeling we will adopt a minimum unit of flow named `u`
+(`u` could be `1msat`, `1sat`, `100sat`, etc.), and for each channel `i` we will
+associate the variables `x[i]` and `y[i]`:
+```
+x[i]: the flow that goes through channel i, the amount is x[i]*u
+y[i]: 0 if and only if x[i]==0, and 1 if x[i]!=0
+```
+
+From a flow assignment we have identified several cost functions that are
+usually relevant:
+
+- the fee cost function in units of `msat`, ie. how much do we pay in fees
+```
+fee_cost_msat(x[i],y[i]) = base_msat * y[i] + proportional_msat * x[i]
+
+where
+    proportional_msat = ppm * 1e-6 * u/msat
+```
+
+- the delay cost, we don't want delay to be too big so that in case of force
+  closure we can recover the funds in a reasonable time
+```
+delay_cost(x[i],y[i]) = base_delay * y[i]
+```
+
+- the probability cost (based on [3])
+```
+prob_cost(x[i],y[i]) = base_prob * y[i] + proportional_prob * x[i]
+
+where
+    base_prob = -k * log prob_active
+
+    proportional_prob = - k * m/(b-a)
+
+    k: is a constant arbitrary factor, we suggest it to be 1000 so that
+    the minimum cost unit of 1 relates to a probability of 0.999 of success
+    (cost = -log probability).
+
+    b, a: the liquidity bounds scaled by u, ie. a = L_low/u and b = L_high/u
+
+    m: an average slope, in the piecewise linearization of the channels (see [4])
+    it takes the values 0, 1.38, 3.05 and 9.24
+```
+
+We define then a Min. Cost Flow problem with an objective function based on
+probability cost, ie. minimize the probability cost function which is equivalent
+to maximize the probability of success, while keep a bound on all other cost
+functions.
+```
+given a graph G(N,A)
+
+minimize
+    sum_{a in A} proportional_prob[a] * x[a] +  base_prob[a] * y[a]
+
+such that
+    // capacity constraints
+    0 <= x[a] <= u[a], for all a in A
+
+    // y[a] are either 0 or 1
+    y[a] = {0, 1}, for all a in A
+
+    // flow conservation
+    sum_{a outgoing from n} x[a] - sum_{a incoming to n} x[a] = b[n], for all n in N
+
+    // y[a] is 1 if and only if x[a]>0
+    0 <= x[a] <= y[a] * u[a], for all a in A
+
+    // additional constraint, fee cost is bounded by Fee_msat
+    Fee_msat >= sum_{a in A} proportional_msat[a]*x[a] + base_msat[a]*y[a]
+
+    // additional constraint, delay is bounded by Delay_max
+    Delay_max >= sum_{a in A} base_delay[a]*y[a]
+```
+
+A Min. Cost Flow Problem solver that handles fixed charge and additional
+constraints can solve this problem and many more variations as long as they keep
+this structure.
+
 # References
 
 [1] Michael R. Garey and David S. Johnson. Computers and Intractability, a guide
@@ -79,3 +170,8 @@ to the Theory of NP-Completeness. ISBN 0-7167-1045-5.
 [2] Dukwon Kim, Panos M. Pardalos. A solution approach to the fixed charge
 network flow problem using a dynamic slope scaling procedure.
 Operations Research Letters 24 (1999) 195-203.
+
+[3] Rene Pickhardt, Stefan Richter. Optimally Reliable & Cheap Payment Flows
+on the Lightning Network https://arxiv.org/abs/2107.05322
+
+[4] https://lagrang3.github.io/2023-10-28-renepay-1
