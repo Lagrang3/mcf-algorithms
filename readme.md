@@ -11,22 +11,22 @@ The FCNFP can also be stated as follows
 given a graph G(N,A)
 
 minimize
-    sum_{a in A} x_a * c_a + f_a * y_a
+    sum_{a in A} x[a] * c[a] + f[a] * y[a]
 
 such that
-    0 <= x_a <= u_a, for all a in A // capacity constraints
+    0 <= x[a] <= u[a], for all a in A // capacity constraints
     
-    y_a = {0, 1}, for all a in A // y_a are either 0 or 1
+    y[a] = {0, 1}, for all a in A // y[a] are either 0 or 1
     
-    sum_{a outgoing from n} x_a - sum_{a incoming to n} x_a = b_n, for all n in N // flow conservation
+    sum_{a outgoing from n} x[a] - sum_{a incoming to n} x[a] = b[n], for all n in N // flow conservation
     
-    0 <= x_a <= y_a * u_a, for all a in A // y_a is 1 if and only if x_a>0
+    0 <= x[a] <= y[a] * u[a], for all a in A // y[a] is 1 if and only if x[a]>0
 
 ```
 
 This problem is NP-Hard, this can be proven by noticing the decision problem
 *Minimum Edge-Cost Flow* (ND32 in [1])
-reduces to our current problem with zero proportional costs, `c_a=0`.
+reduces to our current problem with zero proportional costs, `c[a]=0`.
 
 However, we usually don't need to solve the problem exactly and some approximate
 solutions exist.
@@ -39,16 +39,16 @@ testcases. At first with `|N|=30` and `|A|=300` (TODO: investigate how the accur
 the solutions evolve with increasing problem size).
 We conjeture that the more relevant the fixed costs are the more difficult will
 be for the approximate method to find the optimal solution, therefore we
-produced a set of random test cases assigning `f_a` from an uniform PDF in the
-range `[0,1000000]` and capacities of the arcs `u_a` in the range `[0,10000]`
-while the proportional costs `c_a` where extracted from an uniform PDF in
+produced a set of random test cases assigning `f[a]` from an uniform PDF in the
+range `[0,1000000]` and capacities of the arcs `u[a]` in the range `[0,10000]`
+while the proportional costs `c[a]` where extracted from an uniform PDF in
 the range `[0,2^k]` with `k` varying in different test cases from 0 to 20.
 
 Results are shown below in a scatter plot.
 For each test case there are two points: one corresponding to the dynamic slope
 procedure and the other using a one time linearization of the problem.
-The X coordinate is the ratio of the mean value of `f_a` and the mean value of
-`c_a` multiplied by the flow demand in the problem as a measure of how much do
+The X coordinate is the ratio of the mean value of `f[a]` and the mean value of
+`c[a]` multiplied by the flow demand in the problem as a measure of how much do
 we deviate from a purely linear problem, ie. the smaller the X the more
 quasi linear is the problem and the bigger the X the more important are fixed
 costs values and the harder the problem gets. In the Y axis we have
