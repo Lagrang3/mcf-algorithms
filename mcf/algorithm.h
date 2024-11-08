@@ -212,4 +212,33 @@ bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
 			     s64 *excess, s64 *capacity, const s64 *cost,
 			     const s64 *charge);
 
+/* Similar to solve_fcnfp_approximate, but with additional constraints.
+ *
+ * Given a graph G=(N,A)
+ *
+ * minimize z[0](x,y) = sum_{(i,j) in A} cost[0][i,j] * x[i,j] + charge[0][i,j] * y[i,j]
+ *
+ * such that:
+ * 	// capacity constraints
+ * 	0<= x[i,j] <= capacity[i,j]
+ *
+ * 	// flow conservation constraints
+ * 	sum_{(i,j)} x[i,j] - sum_{(j,i)} x[j,i] = excess[i]
+ *
+ * 	// coupling between x and y
+ * 	0<= x[i,j] <= capacity[i,j] * y[i,j]
+ *
+ * 	// other constraints
+ * 	z[k](x,y) = sum_{(i,j) in A} cost[k][i,j] * x[i,j] + charge[k][i,j] * y[i,j]
+ * 		<= bound[k]
+ * */
+bool solve_constrained_fcnfp_approximate(const tal_t *ctx,
+					 const struct graph *graph,
+					 s64 *excess,
+					 s64 *capacity,
+					 const size_t num_constraints,
+					 const s64 **cost,
+					 const s64 **charge,
+					 const s64 *bound);
+
 #endif /* ALGORITHM_H */

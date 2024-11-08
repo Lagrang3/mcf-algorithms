@@ -696,6 +696,32 @@ s64 flow_cost(const struct graph *graph, const s64 *capacity, const s64 *cost)
 	return total_cost;
 }
 
+/* Helper to obtain the cost of flow for a given cost function with activation
+ * costs. */
+static s64 flow_cost_with_charge(const struct graph *graph, const s64 *capacity,
+				 const s64 *cost, const s64 *charge)
+{
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	s64 total_cost = 0;
+
+	assert(graph && capacity && cost);
+	assert(tal_count(capacity) == max_num_arcs &&
+	       tal_count(cost) == max_num_arcs);
+
+	for (u32 i = 0; i < max_num_arcs; i++) {
+		struct arc arc = {.idx = i};
+		struct arc dual = arc_dual(graph, arc);
+
+		if (arc_is_dual(graph, arc) || !arc_enabled(graph, arc))
+			continue;
+
+		total_cost += capacity[dual.idx] * cost[arc.idx];
+		if (charge && capacity[dual.idx] > 0)
+			total_cost += charge[arc.idx];
+	}
+	return total_cost;
+}
+
 /* Solve the FCNFP subproblem, ie. a MCF with some arcs disabled. */
 static bool solve_fcnfp_subproblem(const tal_t *ctx, const struct graph *graph,
 				   s64 *excess, s64 *capacity, s64 *potential,
@@ -891,6 +917,140 @@ bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
 				/* there could be several ways to deal with the
 				 * case x=0, in this case we set the cost to the
 				 * last value with x!=0 */
+				mod_cost[arc.idx] = last_nonzero_cost[arc.idx];
+			}
+			mod_cost[dual.idx] = -mod_cost[arc.idx];
+		}
+	}
+
+finish:
+	tal_free(this_ctx);
+	return solved;
+}
+
+bool solve_constrained_fcnfp_approximate(const tal_t *ctx,
+					 const struct graph *graph,
+					 s64 *excess,
+					 s64 *capacity,
+					 const size_t num_constraints,
+					 const s64 **cost,
+					 const s64 **charge,
+					 const s64 *bound)
+{
+	bool solved = false;
+	const tal_t *this_ctx = tal(ctx, tal_t);
+	if (!this_ctx)
+		/*bad allocation*/
+		goto finish;
+
+	const size_t max_num_iterations = 100;
+	const s64 max_bound_value = 1000000000;
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	const size_t max_num_nodes = graph_max_num_nodes(graph);
+	s64 *potential = tal_arrz(this_ctx, s64, max_num_nodes);
+	s64 *mod_cost = tal_arrz(this_ctx, s64, max_num_arcs);
+	s64 *prev_capacity = tal_arrz(this_ctx, s64, max_num_arcs);
+	s64 *last_nonzero_cost = tal_arrz(this_ctx, s64, max_num_arcs);
+	double *bound_scale = tal_arrz(this_ctx, double, num_constraints);
+	double *bound_multiplier = tal_arrz(this_ctx, double, num_constraints);
+	if (!potential || !mod_cost || !prev_capacity || !last_nonzero_cost ||
+	    !bound_scale || !bound_multiplier)
+		/*bad allocation*/
+		goto finish;
+
+	for (size_t k = 1; k < num_constraints; k++) {
+		/* we normalize all additional constraints by this number */
+		bound_scale[k] = max_bound_value / (1.0 * bound[k]);
+		/* initial Lagrange multipliers to 0 */
+		bound_multiplier[k] = 0;
+	}
+
+	/* initial guess for dynamic slope */
+	for (struct arc arc = {.idx = 0}; arc.idx < max_num_arcs; arc.idx++) {
+		if (!arc_enabled(graph, arc) || arc_is_dual(graph, arc))
+			continue;
+		mod_cost[arc.idx] =
+		    cost[0][arc.idx] + charge[0][arc.idx] / capacity[arc.idx];
+		last_nonzero_cost[arc.idx] = cost[0][arc.idx];
+
+		struct arc dual = arc_dual(graph, arc);
+		mod_cost[dual.idx] = -mod_cost[arc.idx];
+	}
+
+	/* in the same loop we update the dynamic slope and the Lagrange
+	 * multipliers. */
+	for (size_t i = 1; i <= max_num_iterations; i++) {
+		bool result, cap_equality;
+
+		result = mcf_refinement(this_ctx, graph, excess, capacity,
+					mod_cost, potential);
+
+		if (!result) {
+			/* solution is not feasible, this should only happen at
+			 * the first trial */
+			assert(i == 0);
+			goto finish;
+		}
+
+		/* we have at least one candidate solution */
+		solved = true;
+
+		/* check the stopping criterion */
+		cap_equality = true;
+		for (u32 idx = 0; idx < max_num_arcs; idx++)
+			if (prev_capacity[idx] != capacity[idx]) {
+				cap_equality = false;
+				break;
+			}
+		if (cap_equality)
+			break;
+
+		/* we don't stop, prepare for the next cycle */
+		memcpy(prev_capacity, capacity, sizeof(s64) * max_num_arcs);
+
+		/* update the Lagrange multipliers */
+		for (size_t k = 1; k < num_constraints; k++) {
+			/* what is the cost we pay for this feature on this
+			 * solution? */
+			const s64 feature_cost = flow_cost_with_charge(
+			    graph, capacity, cost[k], charge[k]);
+			const double displace_delta =
+			    (feature_cost - bound[k]) / (1.0 * bound[k]);
+			bound_multiplier[k] +=
+			    bound_scale[k] * (1.0 / i) * displace_delta;
+		}
+
+		/* update the dynamic slope */
+		for (struct arc arc = {.idx = 0}; arc.idx < max_num_arcs;
+		     arc.idx++) {
+			if (!arc_enabled(graph, arc) || arc_is_dual(graph, arc))
+				continue;
+			struct arc dual = arc_dual(graph, arc);
+
+			/* the flow x on an arc equals the residual capacity of
+			 * the dual */
+			const s64 x = capacity[dual.idx];
+
+			/* lagrangean cost and charge */
+			s64 Lag_cost = cost[0][arc.idx],
+			    Lag_charge = charge[0][arc.idx];
+			for (size_t k = 1; k < num_constraints; k++) {
+				Lag_cost +=
+				    cost[k][arc.idx] * bound_multiplier[k];
+				Lag_charge +=
+				    charge[k][arc.idx] * bound_multiplier[k];
+			}
+
+			if (x > 0) {
+				mod_cost[arc.idx] = Lag_cost + Lag_charge / x;
+				last_nonzero_cost[arc.idx] = mod_cost[arc.idx];
+			} else {
+				/* there could be several ways to deal with the
+				 * case x=0, in this case we set the cost to the
+				 * last value with x!=0 */
+				// FIXME: since we change the charge changes as
+				// well we might need to modify how we set the
+				// dynamic slope in the case of x=0
 				mod_cost[arc.idx] = last_nonzero_cost[arc.idx];
 			}
 			mod_cost[dual.idx] = -mod_cost[arc.idx];
