@@ -840,7 +840,8 @@ bool solve_fcnfp(const tal_t *ctx, const struct graph *graph, s64 *excess,
  * */
 bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
 			     s64 *excess, s64 *capacity, const s64 *cost,
-			     const s64 *charge)
+			     const s64 *charge,
+			     const size_t max_num_iterations)
 {
 	bool solved = false;
 	const tal_t *this_ctx = tal(ctx, tal_t);
@@ -848,7 +849,6 @@ bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
 		/*bad allocation*/
 		goto finish;
 
-	const size_t max_num_iterations = 100;
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 	s64 *potential = tal_arrz(this_ctx, s64, max_num_nodes);

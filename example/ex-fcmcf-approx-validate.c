@@ -127,7 +127,8 @@ static bool solve_case(const tal_t *ctx) {
 
 	bool result = solve_fcnfp_approximate(this_ctx, graph,
 			     excess, capacity, cost,
-			     fixedcost);
+			     fixedcost,
+			     100);
 	assert(result);
 	
 	assert(node_balance(graph, src, capacity) == -amount);

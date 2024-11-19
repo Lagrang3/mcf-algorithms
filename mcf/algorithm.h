@@ -210,7 +210,8 @@ bool solve_fcnfp(const tal_t *ctx, const struct graph *graph, s64 *excess,
  * */
 bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
 			     s64 *excess, s64 *capacity, const s64 *cost,
-			     const s64 *charge);
+			     const s64 *charge,
+			     const size_t max_num_iterations);
 
 /* Similar to solve_fcnfp_approximate, but with additional constraints.
  *
