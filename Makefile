@@ -22,6 +22,7 @@ default:
 CCANDIR := ccan
 
 CFLAGS = -I $(CCANDIR) -I . -I gheap
+LDFLAGS = -lm
 
 CCAN_OBJS :=					\
 	ccan-asort.o				\
@@ -278,7 +279,7 @@ ccan-rune-coding.o: $(CCANDIR)/ccan/rune/coding.c
 $(ALL_PROGRAMS): $(COMMON_OBJS)
 
 $(ALL_PROGRAMS):
-	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %a,$^) libccan.a -o $@)
+	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %a,$^) libccan.a $(LDFLAGS) -o $@)
 
 clean:
 	rm libccan.a $(CCAN_OBJS) $(ALL_PROGRAMS) $(ALL_OBJS) $(COMMON_OBJS)

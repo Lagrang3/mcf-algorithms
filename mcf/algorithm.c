@@ -3,6 +3,7 @@
 #include <ccan/tal/tal.h>
 #include <mcf/algorithm.h>
 #include <mcf/priorityqueue.h>
+#include <math.h>
 
 static const s64 INFINITE = INT64_MAX;
 
@@ -928,136 +929,155 @@ finish:
 	return solved;
 }
 
+static bool flow_satisfy_constraints(const struct graph *graph, s64 *capacity,
+				     const size_t num_constraints,
+				     const s64 **cost, const s64 **charge,
+				     const s64 *bound)
+{
+	for (size_t k = 0; k < num_constraints; k++) {
+		s64 F =
+		    flow_cost_with_charge(graph, capacity, cost[k], charge[k]);
+		if (F > bound[k])
+			return false;
+	}
+	return true;
+}
+
+static void compute_modified_cost(const struct graph *graph, s64 *out_cost,
+				  s64 *out_charge, const size_t num_constraints,
+				  const s64 **cost, const s64 **charge,
+				  const double *multiplier)
+{
+
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	for (struct arc arc = {.idx = 0}; arc.idx < max_num_arcs; arc.idx++) {
+		if (!arc_enabled(graph, arc) || arc_is_dual(graph, arc))
+			continue;
+		struct arc dual = arc_dual(graph, arc);
+
+		out_cost[arc.idx] = 0;
+		out_charge[arc.idx] = 0;
+		for (size_t k = 0; k < num_constraints; k++) {
+			out_cost[arc.idx] += cost[k][arc.idx] * multiplier[k];
+			out_charge[arc.idx] +=
+			    charge[k][arc.idx] * multiplier[k];
+		}
+
+		out_cost[dual.idx] = -out_cost[arc.idx];
+		out_charge[dual.idx] = 0;
+	}
+}
+
 bool solve_constrained_fcnfp_approximate(const tal_t *ctx,
-					 const struct graph *graph,
-					 s64 *excess,
+					 const struct graph *graph, s64 *excess,
 					 s64 *capacity,
 					 const size_t num_constraints,
-					 const s64 **cost,
-					 const s64 **charge,
+					 const s64 **cost, const s64 **charge,
 					 const s64 *bound)
 {
-	bool solved = false;
 	const tal_t *this_ctx = tal(ctx, tal_t);
 	if (!this_ctx)
 		/*bad allocation*/
 		goto finish;
 
+	const size_t FCNFP_iterations = 10;
 	const size_t max_num_iterations = 100;
-	const s64 max_bound_value = 1000000000;
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
-	s64 *potential = tal_arrz(this_ctx, s64, max_num_nodes);
-	s64 *mod_cost = tal_arrz(this_ctx, s64, max_num_arcs);
-	s64 *prev_capacity = tal_arrz(this_ctx, s64, max_num_arcs);
-	s64 *last_nonzero_cost = tal_arrz(this_ctx, s64, max_num_arcs);
-	double *bound_scale = tal_arrz(this_ctx, double, num_constraints);
-	double *bound_multiplier = tal_arrz(this_ctx, double, num_constraints);
-	if (!potential || !mod_cost || !prev_capacity || !last_nonzero_cost ||
-	    !bound_scale || !bound_multiplier)
-		/*bad allocation*/
+
+	bool have_best_solution = false;
+	s64 best_solution = INT64_MAX;
+	/* We abuse naming here, the solution is encoded in the residual
+	 * capacity values in the residual network, but we use the same array of
+	 * capacities to store the residual capacity for space efficiency. */
+	s64 *best_capacity = tal_arrz(this_ctx, s64, max_num_arcs);
+
+	/* is it feasible unconstrained? */
+	const bool is_feasible =
+	    solve_fcnfp_approximate(this_ctx, graph, excess, capacity, cost[0],
+				    charge[0], FCNFP_iterations);
+
+	if (!is_feasible)
 		goto finish;
 
-	for (size_t k = 1; k < num_constraints; k++) {
-		/* we normalize all additional constraints by this number */
-		bound_scale[k] = max_bound_value / (1.0 * bound[k]);
-		/* initial Lagrange multipliers to 0 */
-		bound_multiplier[k] = 0;
+	/* this is near the best we can do if we ignore the constraints */
+	const s64 solution_lower_bound =
+	    flow_cost_with_charge(graph, capacity, cost[0], charge[0]);
+
+	if (flow_satisfy_constraints(graph, capacity, num_constraints, cost,
+				     charge, bound)) {
+		/* we have the best solution possible that satisfy the
+		 * constraints */
+		goto finish;
 	}
 
-	/* initial guess for dynamic slope */
-	for (struct arc arc = {.idx = 0}; arc.idx < max_num_arcs; arc.idx++) {
-		if (!arc_enabled(graph, arc) || arc_is_dual(graph, arc))
-			continue;
-		mod_cost[arc.idx] =
-		    cost[0][arc.idx] + charge[0][arc.idx] / capacity[arc.idx];
-		last_nonzero_cost[arc.idx] = cost[0][arc.idx];
+	double *multiplier = tal_arrz(this_ctx, double, num_constraints);
+	s64 *mod_cost = tal_arrz(this_ctx, s64, max_num_arcs);
+	s64 *mod_charge = tal_arrz(this_ctx, s64, max_num_arcs);
 
-		struct arc dual = arc_dual(graph, arc);
-		mod_cost[dual.idx] = -mod_cost[arc.idx];
-	}
-
-	/* in the same loop we update the dynamic slope and the Lagrange
-	 * multipliers. */
-	for (size_t i = 1; i <= max_num_iterations; i++) {
-		bool result, cap_equality;
-
-		result = mcf_refinement(this_ctx, graph, excess, capacity,
-					mod_cost, potential);
-
-		if (!result) {
-			/* solution is not feasible, this should only happen at
-			 * the first trial */
-			assert(i == 0);
-			goto finish;
-		}
-
-		/* we have at least one candidate solution */
-		solved = true;
-
-		/* check the stopping criterion */
-		cap_equality = true;
-		for (u32 idx = 0; idx < max_num_arcs; idx++)
-			if (prev_capacity[idx] != capacity[idx]) {
-				cap_equality = false;
-				break;
-			}
-		if (cap_equality)
-			break;
-
-		/* we don't stop, prepare for the next cycle */
-		memcpy(prev_capacity, capacity, sizeof(s64) * max_num_arcs);
-
-		/* update the Lagrange multipliers */
+	for (size_t i = 1; i < max_num_iterations; i++) {
+		// FIXME: there are many ways to update the Lagrangian
+		// multipliers
+		multiplier[0] = 1;
 		for (size_t k = 1; k < num_constraints; k++) {
-			/* what is the cost we pay for this feature on this
-			 * solution? */
+			/* normalizes the cost for all constraints so that all
+			 * constraints have the same value for the bound */
+			const double scale_factor =
+			    solution_lower_bound * 1.0 / bound[k];
+
+			/* with current multiplier, what is the feature cost? */
 			const s64 feature_cost = flow_cost_with_charge(
 			    graph, capacity, cost[k], charge[k]);
-			const double displace_delta =
-			    (feature_cost - bound[k]) / (1.0 * bound[k]);
-			bound_multiplier[k] +=
-			    bound_scale[k] * (1.0 / i) * displace_delta;
-		}
+			double delta = 0;
 
-		/* update the dynamic slope */
-		for (struct arc arc = {.idx = 0}; arc.idx < max_num_arcs;
-		     arc.idx++) {
-			if (!arc_enabled(graph, arc) || arc_is_dual(graph, arc))
-				continue;
-			struct arc dual = arc_dual(graph, arc);
-
-			/* the flow x on an arc equals the residual capacity of
-			 * the dual */
-			const s64 x = capacity[dual.idx];
-
-			/* lagrangean cost and charge */
-			s64 Lag_cost = cost[0][arc.idx],
-			    Lag_charge = charge[0][arc.idx];
-			for (size_t k = 1; k < num_constraints; k++) {
-				Lag_cost +=
-				    cost[k][arc.idx] * bound_multiplier[k];
-				Lag_charge +=
-				    charge[k][arc.idx] * bound_multiplier[k];
-			}
-
-			if (x > 0) {
-				mod_cost[arc.idx] = Lag_cost + Lag_charge / x;
-				last_nonzero_cost[arc.idx] = mod_cost[arc.idx];
+			if (feature_cost > bound[k]) {
+				/* constraint is not met, we need to increase
+				 * the Lagrange multiplier */
+				delta = 2;
 			} else {
-				/* there could be several ways to deal with the
-				 * case x=0, in this case we set the cost to the
-				 * last value with x!=0 */
-				// FIXME: since we change the charge changes as
-				// well we might need to modify how we set the
-				// dynamic slope in the case of x=0
-				mod_cost[arc.idx] = last_nonzero_cost[arc.idx];
+				/* constraint is realized, can we reduce the
+				 * Lagrange multiplier so that */
+				delta = -1;
 			}
-			mod_cost[dual.idx] = -mod_cost[arc.idx];
+
+			multiplier[k] += scale_factor * delta / i;
+
+			/* never go negative */
+			multiplier[k] = fmax(multiplier[k], 0.0);
 		}
+
+		compute_modified_cost(graph, mod_cost, mod_charge,
+				      num_constraints, cost, charge,
+				      multiplier);
+		bool ret = solve_fcnfp_approximate(
+		    this_ctx, graph, excess, capacity, mod_cost, mod_charge,
+		    FCNFP_iterations);
+		/* at this point we know that an uncontrained solution is
+		 * feasible */
+		assert(ret);
+
+		const s64 total_cost =
+		    flow_cost_with_charge(graph, capacity, cost[0], charge[0]);
+		if (flow_satisfy_constraints(graph, capacity, num_constraints,
+					     cost, charge, bound)) {
+			if (!have_best_solution || best_solution > total_cost) {
+				best_solution = total_cost;
+				have_best_solution = true;
+				memcpy(best_capacity, capacity,
+				       sizeof(s64) * max_num_arcs);
+			}
+		}
+
+		// FIXME: can we figure out one stopping criterium?
 	}
 
 finish:
+	/* We finished the main loop. The best constrained solution is the
+	 * answer. If we have not found any constrained solution, we return our
+	 * best guess, which is the last capacty state. */
+	if (have_best_solution)
+		memcpy(capacity, best_capacity, sizeof(s64) * max_num_arcs);
+
 	tal_free(this_ctx);
-	return solved;
+	return is_feasible;
 }
