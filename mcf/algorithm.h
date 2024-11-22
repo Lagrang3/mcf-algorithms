@@ -232,14 +232,45 @@ bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
  * 	// other constraints
  * 	z[k](x,y) = sum_{(i,j) in A} cost[k][i,j] * x[i,j] + charge[k][i,j] * y[i,j]
  * 		<= bound[k]
+ *
+ * ctx: allocator
+ * graph: problem's topology, nodes, arcs and duals
+ * excess[num_nodes]: defines the problem's sources and sinks, ie.
+ * 	a source is a node n for which excess[n]>0, for a sink excess[n]<0 and
+ * 	routing nodes have excess[n]=0. The problem is solved when excess[n]=0
+ * 	for every node.
+ * capacity[num_arcs]: the residual capacity of every arc and
+ * 	corresponding dual, here we write the final solution.
+ * num_constraints: the number of cost functions in our problem, one is the
+ * 	objective function (that we want to minimize) and the rest are side
+ * 	constraints.
+ * cost[num_constraints][num_arcs]: proportional cost, ie. cost per
+ * 	unit of flow for every cost function and arc.
+ * charge[num_constraints][num_arcs]: fixed charge, ie. activation
+ *	cost for every cost function and arc.
+ * bound[num_constraints]: defines the problem constraints,
+ * 	cost function k cannot exceed bound[k].
+ * tolerance: we stop once we find a feasible solution that deviates at most
+ *	this number from the optimal solution, ie.
+ *		|C-C*|/C* < tolerance
+ *	where C* is the optimal solution and C is the approximative solution.
+ * max_num_iterations: we stop if we reach this number of iterations
+ *
  * */
-bool solve_constrained_fcnfp_approximate(const tal_t *ctx,
-					 const struct graph *graph,
-					 s64 *excess,
-					 s64 *capacity,
-					 const size_t num_constraints,
-					 const s64 **cost,
-					 const s64 **charge,
-					 const s64 *bound);
+bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
+			     s64 *excess, s64 *capacity,
+			     const size_t num_constraints, s64 **cost,
+			     s64 **charge, const s64 *bound,
+			     const double tolerance,
+			     const size_t max_num_iterations);
+
+/* Helper, count the number of satisfied constraints */
+int flow_satisfy_constraints(const struct graph *graph, s64 *capacity,
+			     const size_t num_constraints, s64 **cost,
+			     s64 **charge, const s64 *bound);
+
+/* Helper, compute the cost of flow solution. */
+s64 flow_cost_with_charge(const struct graph *graph, const s64 *capacity,
+			  const s64 *cost, const s64 *charge);
 
 #endif /* ALGORITHM_H */
