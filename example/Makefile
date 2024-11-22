@@ -24,3 +24,5 @@ example/ex-mcf-validate: example/ex-mcf-validate.o
 example/ex-fcmcf-validate: example/ex-fcmcf-validate.o
 
 example/ex-fcmcf-approx-validate: example/ex-fcmcf-approx-validate.o
+
+example/ex-constrained-fcmcf-validate: example/ex-constrained-fcmcf-validate.o

@@ -21,8 +21,8 @@ default:
 # We use our own internal ccan copy.
 CCANDIR := ccan
 
-CFLAGS = -I $(CCANDIR) -I . -I gheap
-LDFLAGS = -lm
+CFLAGS = -I $(CCANDIR) -I . -I gheap -g
+LDFLAGS = -lm -g
 
 CCAN_OBJS :=					\
 	ccan-asort.o				\
