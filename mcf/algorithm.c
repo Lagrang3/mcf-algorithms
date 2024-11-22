@@ -873,7 +873,16 @@ bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
 		s64 cap = capacity[arc.idx] + capacity[dual.idx];
 		if (cap == 0)
 			cap = 1;
-		mod_cost[arc.idx] = cost[arc.idx] + charge[arc.idx] / cap;
+		/* use previous flow states to initialize this slope */
+		s64 x = capacity[dual.idx];
+
+		if (x > 0) {
+			mod_cost[arc.idx] = cost[arc.idx] + charge[arc.idx] / x;
+		} else {
+			mod_cost[arc.idx] =
+			    cost[arc.idx] + charge[arc.idx] / cap;
+		}
+
 		last_nonzero_cost[arc.idx] = cost[arc.idx];
 
 		mod_cost[dual.idx] = -mod_cost[arc.idx];
