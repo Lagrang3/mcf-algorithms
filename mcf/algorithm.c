@@ -1035,6 +1035,9 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 	/* To solve the Fixed Charge MCF subproblem we use this number of hard
 	 * coded maximum iterations. */
 	const size_t FCNFP_iterations = 10;
+	const size_t first_round_FCNFP_iterations = 100;
+	const double decay_exponent = 0.9;
+
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 
@@ -1048,13 +1051,13 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 	/* is it feasible unconstrained? */
 	const bool is_feasible =
 	    solve_fcnfp_approximate(this_ctx, graph, excess, capacity, cost[0],
-				    charge[0], FCNFP_iterations);
+				    charge[0], first_round_FCNFP_iterations);
 
 	if (!is_feasible)
 		goto finish;
 
 	/* this is near the best we can do if we ignore the constraints */
-	const s64 solution_lower_bound =
+	s64 solution_lower_bound =
 	    flow_cost_with_charge(graph, capacity, cost[0], charge[0]);
 
 	if (flow_satisfy_constraints(graph, capacity, num_constraints, cost,
@@ -1093,7 +1096,7 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 				delta = -1;
 			}
 
-			multiplier[k] += scale_factor * delta / i;
+			multiplier[k] += scale_factor * delta / pow(i, decay_exponent);
 
 			/* never go negative */
 			multiplier[k] = fmax(multiplier[k], 0.0);
@@ -1111,6 +1114,15 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 
 		const s64 total_cost =
 		    flow_cost_with_charge(graph, capacity, cost[0], charge[0]);
+
+		/* raise the lower bound by the Lagrangian Bounding Principle */
+		s64 mod_total_cost = flow_cost_with_charge(
+		    graph, capacity, mod_cost, mod_charge);
+		for (size_t k = 1; k < num_constraints; k++)
+			mod_total_cost -= multiplier[k] * bound[k];
+		if (solution_lower_bound > mod_total_cost)
+			solution_lower_bound = mod_total_cost;
+
 		if (flow_satisfy_constraints(graph, capacity, num_constraints,
 					     cost, charge,
 					     bound) == num_constraints) {
@@ -1121,7 +1133,6 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 				       sizeof(s64) * max_num_arcs);
 			}
 		}
-
 		if (have_best_solution &&
 		    (best_solution - solution_lower_bound) * 1.0 /
 			    solution_lower_bound <=
