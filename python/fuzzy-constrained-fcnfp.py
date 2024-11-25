@@ -4,6 +4,12 @@ from ortools.graph.python import min_cost_flow
 from ortools.graph.python import max_flow
 from ortools.linear_solver import pywraplp
 import matplotlib.pyplot as plt
+import random
+
+ID_BYTELEN = 8
+
+def generate_problem_id():
+    return random.randbytes(ID_BYTELEN).hex()
 
 def create_graph(N_nodes, N_arcs, source, target):
     """
@@ -187,6 +193,7 @@ def generate_problem(
             return None
 
     problem = {}
+    problem["id"] = generate_problem_id()
     problem["graph"] = G
     problem["N_nodes"] = N_nodes
     problem["N_arcs"] = N_arcs
@@ -202,6 +209,7 @@ def generate_problem(
     problem["destination"] = target
     problem["solution"] = best_fcmcfcost
     problem["proof"] = xsolution
+    problem["difficulty"] = max(difficulty)
     return problem
 
 
@@ -209,10 +217,6 @@ import sys
 
 N, M, MAXCAP, MAXCOST, MAXCHARGE, NCONSTRAINTS = map(int, sys.argv[1:7])
 difficulty = [ float(x) for x in sys.argv[-NCONSTRAINTS:]]
-
-if N == 0:
-    print("0 0 0")
-    exit()
 
 problem = generate_problem(
     N, M, MAXCAP, MAXCOST, MAXCHARGE, NCONSTRAINTS, difficulty
@@ -223,7 +227,8 @@ if problem is None:
 
 #print(problem)
 
-print(problem["N_nodes"], problem["N_arcs"], problem["N_constraints"])
+print(problem["id"])
+print(problem["N_nodes"], problem["N_arcs"], problem["N_constraints"], problem["difficulty"])
 for i, j, ca, co, fco in zip(
     problem["start_nodes"],
     problem["end_nodes"],

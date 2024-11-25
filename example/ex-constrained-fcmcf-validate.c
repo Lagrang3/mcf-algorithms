@@ -17,8 +17,11 @@ static bool solve_case(const tal_t *ctx) {
 	c++;
 	tal_t *this_ctx = tal(ctx, tal_t);
 
+	char problem_ID[20];
 	int N_nodes, N_arcs, N_constraints;
-	scanf("%d %d %d\n", &N_nodes, &N_arcs, &N_constraints);
+	double difficulty; /* just informative about how the problem was generated */
+	scanf("%s", problem_ID);
+	scanf("%d %d %d %lf\n", &N_nodes, &N_arcs, &N_constraints, &difficulty);
 	// printf("solving test case Nnodes = %d Narcs = %d Nconstraints = %d\n",
 	//	N_nodes, N_arcs, N_constraints);
 
@@ -111,7 +114,9 @@ static bool solve_case(const tal_t *ctx) {
 	int satisfied_UNconstraints = flow_satisfy_constraints(
 	    graph, capacity, N_constraints, cost, fixedcost, bound);
 
-	printf("%lld %d %lld %d %lld %d\n",
+	printf("%s %lf %lld %d %lld %d %lld %d\n",
+	       problem_ID,
+	       difficulty,
 	       best_cost,
 	       N_constraints,
 	       cost_unconstrained,
