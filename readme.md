@@ -162,6 +162,61 @@ A Min. Cost Flow Problem solver that handles fixed charge and additional
 constraints can solve this problem and many more variations as long as they keep
 this structure.
 
+# First implementation of the Constrained Fixed Charge Network Flow Problem and Results
+
+I have implemented a simple solver for this problem based on the existing solver
+for the FCNFP as a subproblem. It uses Lagrangian relaxation of the extra
+constraints adding them as extra terms to the objective function.
+```
+bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
+			     s64 *excess, s64 *capacity,
+			     const size_t num_constraints, s64 **cost,
+			     s64 **charge, const s64 *bound,
+			     const double tolerance,
+			     const size_t max_num_iterations);
+```
+
+We have tested it with randomly generated graphs with 30 nodes and 100 arcs.
+Also the arc's features were randomly generated, ie.
+capacity: from 0 to 10'000, slope of the costs functions: 0 to 100,
+and fixed charge (when requested): 0 to 100'000.
+
+The generated random cases are classified according to their *difficulty*.
+This quantity has been defined as the ratio between the smallest possible value
+the cost function (for the extra features) can reach with the given supply/demand
+constraints and the value of the constraint imposed on that feature.
+```
+    difficulty = smallest_cost/constraint
+```
+The difficulty tends to zero when the constraint goes to infinity and it can
+practically be ignored. The difficulty tends to 1, the maximum value we can
+reach, means that the constraint is almost equal the smallest value of the
+feature's cost function. Increasing the difficulty we reduce the space of
+feasible solutions.
+
+## Testcases with 0 fixed charge (or activation cost)
+
+![accuracy for 1 side constraint](./plots/cfmcf-1c-0f-accuracy.png)
+![success rate for 1 side constraint](./plots/cfmcf-1c-0f-success.png)
+
+![accuracy for 2 side constraint](./plots/cfmcf-2c-0f-accuracy.png)
+![success rate for 2 side constraint](./plots/cfmcf-2c-0f-success.png)
+
+![accuracy for 3 side constraint](./plots/cfmcf-3c-0f-accuracy.png)
+![success rate for 3 side constraint](./plots/cfmcf-3c-0f-success.png)
+
+## Testcases with fixed charge
+
+![accuracy for 1 side constraint](./plots/cfmcf-1c-1f-accuracy.png)
+![success rate for 1 side constraint](./plots/cfmcf-1c-1f-success.png)
+
+![accuracy for 2 side constraint](./plots/cfmcf-2c-1f-accuracy.png)
+![success rate for 2 side constraint](./plots/cfmcf-2c-1f-success.png)
+
+![accuracy for 3 side constraint](./plots/cfmcf-3c-1f-accuracy.png)
+![success rate for 3 side constraint](./plots/cfmcf-3c-1f-success.png)
+
+
 # References
 
 [1] Michael R. Garey and David S. Johnson. Computers and Intractability, a guide
