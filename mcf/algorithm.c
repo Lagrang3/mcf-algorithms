@@ -1036,7 +1036,7 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 	 * coded maximum iterations. */
 	const size_t FCNFP_iterations = 10;
 	const size_t first_round_FCNFP_iterations = 100;
-	const double decay_exponent = 0.9;
+	const double decay_exponent = 0.5;
 
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);

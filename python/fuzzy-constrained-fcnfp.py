@@ -149,7 +149,8 @@ def generate_problem(
     attempts = 0
     while True:
         capacity = np.random.randint(1, M_cap + 1, size=N_arcs)
-        cost = np.random.randint(M_cost + 1, size=(N_constraints, N_arcs))
+        # cost is never zero
+        cost = np.random.randint(1, M_cost + 1, size=(N_constraints, N_arcs))
         fixedcost = np.random.randint(M_charge + 1, size=(N_constraints, N_arcs))
 
         # find out the max flow
