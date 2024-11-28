@@ -81,7 +81,7 @@ static inline bool arc_is_dual(const struct graph *graph, struct arc arc)
 static inline struct node arc_tail(const struct graph *graph,
 				   const struct arc arc)
 {
-	assert(arc.idx < tal_count(graph->arc_tail));
+	assert(arc.idx < graph_max_num_arcs(graph));
 	return graph->arc_tail[arc.idx];
 }
 
@@ -90,7 +90,7 @@ static inline struct node arc_head(const struct graph *graph,
 				   const struct arc arc)
 {
 	const struct arc dual = arc_dual(graph, arc);
-	assert(dual.idx < tal_count(graph->arc_tail));
+	assert(dual.idx < graph_max_num_arcs(graph));
 	return graph->arc_tail[dual.idx];
 }
 
@@ -119,7 +119,7 @@ static inline bool arc_enabled(const struct graph *graph, const struct arc arc)
 static inline struct arc node_adjacency_begin(const struct graph *graph,
 					      const struct node node)
 {
-	assert(node.idx < tal_count(graph->node_adjacency_first));
+	assert(node.idx < graph_max_num_nodes(graph));
 	return graph->node_adjacency_first[node.idx];
 }
 static inline bool node_adjacency_end(const struct arc arc)
@@ -129,7 +129,7 @@ static inline bool node_adjacency_end(const struct arc arc)
 static inline struct arc node_adjacency_next(const struct graph *graph,
 					     const struct arc arc)
 {
-	assert(arc.idx < tal_count(graph->node_adjacency_next));
+	assert(arc.idx < graph_max_num_arcs(graph));
 	return graph->node_adjacency_next[arc.idx];
 }
 
