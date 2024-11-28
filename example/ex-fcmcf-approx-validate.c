@@ -125,7 +125,7 @@ static bool solve_case(const tal_t *ctx) {
 	/* ignoring fixed charge, what do we obtain? */
 	const s64 mcf_solution = solve_mcf(this_ctx, graph, excess, capacity, cost, fixedcost);
 
-	bool result = solve_fcnfp_approximate(this_ctx, graph,
+	bool result = solve_fcnfp(this_ctx, graph,
 			     excess, capacity, cost,
 			     fixedcost,
 			     100);

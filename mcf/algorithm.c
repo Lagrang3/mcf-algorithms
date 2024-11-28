@@ -668,17 +668,15 @@ s64 flow_cost(const struct graph *graph, const s64 *capacity, const s64 *cost)
 	return total_cost;
 }
 
-/* Helper to obtain the cost of flow for a given cost function with activation
- * costs. */
 s64 flow_cost_with_charge(const struct graph *graph, const s64 *capacity,
 			  const s64 *cost, const s64 *charge)
 {
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	assert(tal_count(capacity)==max_num_arcs);
 	assert(tal_count(cost)==max_num_arcs);
-	
-	assert(!charge || tal_count(charge)==max_num_arcs);
-	
+
+	assert(!charge || tal_count(charge) == max_num_arcs);
+
 	s64 total_cost = 0;
 
 	assert(graph && capacity && cost);
@@ -699,58 +697,12 @@ s64 flow_cost_with_charge(const struct graph *graph, const s64 *capacity,
 	return total_cost;
 }
 
-/* Solve the FCNFP subproblem, ie. a MCF with some arcs disabled. */
-static bool solve_fcnfp_subproblem(const tal_t *ctx, const struct graph *graph,
-				   s64 *excess, s64 *capacity, s64 *potential,
-				   const s64 *cost, u64 bitmap,
-				   const struct arc *arc_arr, size_t edge_count)
-{
-	for (size_t i = 0; i < edge_count; i++) {
-		struct arc arc = arc_arr[i];
-		struct arc dual = arc_dual(graph, arc);
-
-		assert(!arc_is_dual(graph, arc));
-		if (!(bitmap & (1 << i))) {
-			capacity[arc.idx] = capacity[dual.idx] = 0;
-		}
-	}
-	return mcf_refinement(ctx, graph, excess, capacity, cost, potential);
-}
-
-/* An approximate solver to the Fixed Charge Network Flow Problem (FCNFP).
- * Based on dynamic slope scaling by Kim et Pardalos,
- * Operations Research Letters 24 (1999) 195--203
- *
- * Given a graph G=(N,A)
- *
- * minimize f(x) = sum_{(i,j) in A} f[i,j](x[i,j])
- *
- * where:
- * 	f[i,j](x[i,j]) = x[i,j]>0 ?
- * 		s[i,j] + c[i,j] * x[i,j] :
- * 		0;
- *
- * 	// s[i,j]>=0 is constant arc activation cost
- * 	// c[i,j]>= is a cost proportional to the flow
- *
- * such that:
- * 	0<= x[i,j] <= u[i,j] // capacity constraints
- *
- * 	sum_{(i,j)} x[i,j] - sum_{(j,i)} x[j,i] = b[i]
- * 	// flow conservation constraints
- * 	// b[i]>0 is a supply node, b[i]<0 is a demand node
- *
- * */
-bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
-			     s64 *excess, s64 *capacity, const s64 *cost,
-			     const s64 *charge,
-			     const size_t max_num_iterations)
+bool solve_fcnfp(const tal_t *ctx, const struct graph *graph, s64 *excess,
+		 s64 *capacity, const s64 *cost, const s64 *charge,
+		 const size_t max_num_iterations)
 {
 	bool solved = false;
 	const tal_t *this_ctx = tal(ctx, tal_t);
-	if (!this_ctx)
-		/*bad allocation*/
-		goto finish;
 
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
@@ -758,9 +710,6 @@ bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
 	s64 *mod_cost = tal_arrz(this_ctx, s64, max_num_arcs);
 	s64 *prev_capacity = tal_arrz(this_ctx, s64, max_num_arcs);
 	s64 *last_nonzero_cost = tal_arrz(this_ctx, s64, max_num_arcs);
-	if (!potential || !mod_cost || !prev_capacity || !last_nonzero_cost)
-		/*bad allocation*/
-		goto finish;
 
 	/* initial guess */
 	for (struct arc arc = {.idx = 0}; arc.idx < max_num_arcs; arc.idx++) {
@@ -856,6 +805,8 @@ int flow_satisfy_constraints(const struct graph *graph, s64 *capacity,
 	return count_ok;
 }
 
+/* helper: combines linearly a list of cost functions with proportional and
+ * fixed charge. */
 static void compute_modified_cost(const struct graph *graph, s64 *out_cost,
 				  s64 *out_charge, const size_t num_constraints,
 				  s64 **cost, s64 **charge,
@@ -881,42 +832,6 @@ static void compute_modified_cost(const struct graph *graph, s64 *out_cost,
 	}
 }
 
-/* An approximate solver for a Minimum Cost Flow problem with activation costs
- * and additional constraints. A Lagrangian relaxation approach.
- *
- * ctx: allocator
- * graph: problem's topology, nodes, arcs and duals
- * excess: [num_nodes] array, defines the problem's sources and sinks, ie.
- * 	a source is a node n for which excess[n]>0, for a sink excess[n]<0 and
- * 	routing nodes have excess[n]=0. The problem is solved when excess[n]=0
- * 	for every node.
- * capacity: [num_arcs] array, the residual capacity of every arc and
- * 	corresponding dual, here we write the final solution.
- * num_constraints: the number of cost functions in our problem, one is the
- * 	objective function (that we want to minimize) and the rest are side
- * 	constraints.
- * cost: [num_constraints][num_arcs] array of proportional cost, ie. cost per
- * 	unit of flow for every cost function and arc.
- * charge: [num_constraints][num_arcs] array of fixed charge, ie. activation
- *	cost for every cost function and arc.
- * bound: [num_constraints] array, defines the problem constraints,
- * 	cost function k cannot exceed bound[k].
- * tolerance: the value of the unconstrained problem C_0 is a lower bound to the
- * 	best solution's cost, if we find a feasible solution to the constrained
- * 	problem with cost C that is a canditate solution and we know that the
- * 	optimal solution C* is bounded by those numbers: C_0 <= C* <= C.
- *	Hence:
- * 		|C-C*|/C* <= |C - C_0|/C* <= |C-C_0|/C_0
- * 	and we can use |C-C_0|/C_0 to bound the distance from the optimal
- * 	solution of C.
- * 	The tolerance is a stopping condition based on that inequality:
- * 	if |C-C_0|/C_0 < tolerance, then we know for sure that we have found a
- * 	solution for which |C-C*|/C* < tolerance.
- * max_num_iterations: whether we obtain a feasible solution under the value of
- * 	the given tolerance, or whether we have found no feasible constrained
- * 	solution at all, we stop searching once we have reached a maximum number
- * 	of iterations.
- * */
 bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 			     s64 *excess, s64 *capacity,
 			     const size_t num_constraints, s64 **cost,
@@ -925,9 +840,6 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 			     const size_t max_num_iterations)
 {
 	const tal_t *this_ctx = tal(ctx, tal_t);
-	if (!this_ctx)
-		/*bad allocation*/
-		goto finish;
 
 	/* To solve the Fixed Charge MCF subproblem we use this number of hard
 	 * coded maximum iterations. */
@@ -947,8 +859,8 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 
 	/* is it feasible unconstrained? */
 	const bool is_feasible =
-	    solve_fcnfp_approximate(this_ctx, graph, excess, capacity, cost[0],
-				    charge[0], first_round_FCNFP_iterations);
+	    solve_fcnfp(this_ctx, graph, excess, capacity, cost[0], charge[0],
+			first_round_FCNFP_iterations);
 
 	if (!is_feasible)
 		goto finish;
@@ -1002,9 +914,8 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 		compute_modified_cost(graph, mod_cost, mod_charge,
 				      num_constraints, cost, charge,
 				      multiplier);
-		bool ret = solve_fcnfp_approximate(
-		    this_ctx, graph, excess, capacity, mod_cost, mod_charge,
-		    FCNFP_iterations);
+		bool ret = solve_fcnfp(this_ctx, graph, excess, capacity,
+				       mod_cost, mod_charge, FCNFP_iterations);
 		/* at this point we know that an uncontrained solution is
 		 * feasible */
 		assert(ret);

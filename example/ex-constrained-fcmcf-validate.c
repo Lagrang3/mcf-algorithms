@@ -104,7 +104,7 @@ static bool solve_case(const tal_t *ctx) {
 		assert(excess[i] == 0);
 	
 	
-	bool result_unconstrained = solve_fcnfp_approximate(this_ctx, graph,
+	bool result_unconstrained = solve_fcnfp(this_ctx, graph,
 			     excess, capacity, cost[0],
 			     fixedcost[0],
 			     100);

@@ -184,13 +184,11 @@ bool mcf_refinement(const tal_t *ctx,
  *
  * Given a graph G=(N,A)
  *
- * minimize f(x) = sum_{(i,j) in A} f[i,j](x[i,j])
+ * minimize f(x) = sum_{(i,j) in A} c[i,j] x[i,j] + s[i,j] y[i,j]
  *
  * where:
- * 	f[i,j](x[i,j]) = x[i,j]>0 ?
- * 		s[i,j] + c[i,j] * x[i,j] :
- * 		0;
- *
+ * 	y[i,j] = x[i,j]>0 ? 1 : 0;
+ * 	// y indicates if the arc is active or not
  * 	// s[i,j]>=0 is constant arc activation cost
  * 	// c[i,j]>= is a cost proportional to the flow
  *
@@ -202,14 +200,13 @@ bool mcf_refinement(const tal_t *ctx,
  * 	// b[i]>0 is a supply node, b[i]<0 is a demand node
  *
  * */
-bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
-			     s64 *excess, s64 *capacity, const s64 *cost,
-			     const s64 *charge,
-			     const size_t max_num_iterations);
+bool solve_fcnfp(const tal_t *ctx, const struct graph *graph, s64 *excess,
+		 s64 *capacity, const s64 *cost, const s64 *charge,
+		 const size_t max_num_iterations);
 
-/* Similar to solve_fcnfp_approximate, but with additional constraints.
+/* Similar to solve_fcnfp, but with additional constraints.
  *
- * Given a graph G=(N,A)
+ * Given a graph G=(N,A) and a list of cost functions z[num_constraints]
  *
  * minimize z[0](x,y) = sum_{(i,j) in A} cost[0][i,j] * x[i,j] + charge[0][i,j] * y[i,j]
  *
@@ -226,6 +223,7 @@ bool solve_fcnfp_approximate(const tal_t *ctx, const struct graph *graph,
  * 	// other constraints
  * 	z[k](x,y) = sum_{(i,j) in A} cost[k][i,j] * x[i,j] + charge[k][i,j] * y[i,j]
  * 		<= bound[k]
+ * 	for 1<=k<num_constraints
  *
  * ctx: allocator
  * graph: problem's topology, nodes, arcs and duals
@@ -263,7 +261,8 @@ int flow_satisfy_constraints(const struct graph *graph, s64 *capacity,
 			     const size_t num_constraints, s64 **cost,
 			     s64 **charge, const s64 *bound);
 
-/* Helper, compute the cost of flow solution. */
+/* Helper to obtain the cost of flow for a given cost function with activation
+ * costs. */
 s64 flow_cost_with_charge(const struct graph *graph, const s64 *capacity,
 			  const s64 *cost, const s64 *charge);
 
