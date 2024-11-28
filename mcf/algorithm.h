@@ -178,12 +178,6 @@ bool mcf_refinement(const tal_t *ctx,
 		    const s64 *cost,
 		    s64 *potential);
 
-/* An exact solver to the Fixed Charge Network Flow Problem (FCNFP).
- * O(2^n) */
-bool solve_fcnfp(const tal_t *ctx, const struct graph *graph, s64 *excess,
-		 s64 *capacity, const s64 *cost, const s64 *charge);
-
-
 /* An approximate solver to the Fixed Charge Network Flow Problem (FCNFP).
  * Based on dynamic slope scaling by Kim et Pardalos,
  * Operations Research Letters 24 (1999) 195--203
