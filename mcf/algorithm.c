@@ -928,7 +928,7 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 		    graph, capacity, mod_cost, mod_charge);
 		for (size_t k = 1; k < num_constraints; k++)
 			mod_total_cost -= multiplier[k] * bound[k];
-		if (solution_lower_bound > mod_total_cost)
+		if (solution_lower_bound < mod_total_cost)
 			solution_lower_bound = mod_total_cost;
 
 		if (flow_satisfy_constraints(graph, capacity, num_constraints,
