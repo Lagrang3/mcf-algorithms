@@ -1,3 +1,17 @@
+# Instructions
+
+Create a virtual env for processing the results in python
+```
+ptyhon3 -m venv venv
+source venv/bin/activate
+pip install -r python/requirements.txt
+```
+
+Compile the project
+```
+make
+```
+
 # Fixed Charge Network Flow Problem
 
 The Fixed Charge Network Flow Problem (FCNFP) is defined as a Network Flow
@@ -215,6 +229,33 @@ feasible solutions.
 
 ![accuracy for 3 side constraint](./plots/cfmcf-3c-1f-accuracy.png)
 ![success rate for 3 side constraint](./plots/cfmcf-3c-1f-success.png)
+
+To run these benchmarks
+```
+ACTIVATION_COSTS=N
+N_CONSTRAINTS=2
+bash generate-cfcnfp.sh ${N_CONSTRAINTS} ${ACTIVATION_COSTS} | tee constrained-fcnfp-n${N_CONSTRAINTS}${ACTIVATION_COSTS}.data | ./example/ex-constrained-fcmcf-validate | tee results-n${N_CONSTRAINTS}${ACTIVATION_COSTS} | python3 scatter-plot-cfcnfp.py ${ACTIVATION_COSTS}
+
+ACTIVATION_COSTS=N
+N_CONSTRAINTS=3
+bash generate-cfcnfp.sh ${N_CONSTRAINTS} ${ACTIVATION_COSTS} | tee constrained-fcnfp-n${N_CONSTRAINTS}${ACTIVATION_COSTS}.data | ./example/ex-constrained-fcmcf-validate | tee results-n${N_CONSTRAINTS}${ACTIVATION_COSTS} | python3 scatter-plot-cfcnfp.py ${ACTIVATION_COSTS}
+
+ACTIVATION_COSTS=N
+N_CONSTRAINTS=4
+bash generate-cfcnfp.sh ${N_CONSTRAINTS} ${ACTIVATION_COSTS} | tee constrained-fcnfp-n${N_CONSTRAINTS}${ACTIVATION_COSTS}.data | ./example/ex-constrained-fcmcf-validate | tee results-n${N_CONSTRAINTS}${ACTIVATION_COSTS} | python3 scatter-plot-cfcnfp.py ${ACTIVATION_COSTS}
+
+ACTIVATION_COSTS=Y
+N_CONSTRAINTS=2
+bash generate-cfcnfp.sh ${N_CONSTRAINTS} ${ACTIVATION_COSTS} | tee constrained-fcnfp-n${N_CONSTRAINTS}${ACTIVATION_COSTS}.data | ./example/ex-constrained-fcmcf-validate | tee results-n${N_CONSTRAINTS}${ACTIVATION_COSTS} | python3 scatter-plot-cfcnfp.py ${ACTIVATION_COSTS}
+
+ACTIVATION_COSTS=Y
+N_CONSTRAINTS=3
+bash generate-cfcnfp.sh ${N_CONSTRAINTS} ${ACTIVATION_COSTS} | tee constrained-fcnfp-n${N_CONSTRAINTS}${ACTIVATION_COSTS}.data | ./example/ex-constrained-fcmcf-validate | tee results-n${N_CONSTRAINTS}${ACTIVATION_COSTS} | python3 scatter-plot-cfcnfp.py ${ACTIVATION_COSTS}
+
+ACTIVATION_COSTS=Y
+N_CONSTRAINTS=4
+bash generate-cfcnfp.sh ${N_CONSTRAINTS} ${ACTIVATION_COSTS} | tee constrained-fcnfp-n${N_CONSTRAINTS}${ACTIVATION_COSTS}.data | ./example/ex-constrained-fcmcf-validate | tee results-n${N_CONSTRAINTS}${ACTIVATION_COSTS} | python3 scatter-plot-cfcnfp.py ${ACTIVATION_COSTS}
+```
 
 
 # References

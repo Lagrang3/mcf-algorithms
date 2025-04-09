@@ -1,3 +1,4 @@
+import sys
 from sys import stdin
 import math
 import numpy as np
@@ -5,6 +6,11 @@ import matplotlib.pyplot as plt
 
 n_constraints = 0
 fixed_charge = False
+
+assert len(sys.argv)==2
+
+if sys.argv[1]=='Y':
+    fixed_charge = True
 
 def transform_scale(x):
     return -np.log2(1.0 - x)
@@ -36,7 +42,7 @@ def plot_scatter(X, Y):
     ax.set_xticklabels(X_labels)
     ax.set_xlabel("difficulty")
     ax.set_ylabel("approximate/best solution ratio")
-    ax.set_title("%d-constraints solution accuracy (%s activation costs)" % (n_constraints-1,
+    ax.set_title("%d extra constraints solution accuracy (%s activation costs)" % (n_constraints-1,
         "with" if fixed_charge else "without"))
     
     qvalues = np.array([ np.quantile(b, quantiles) for b in boxes ])
@@ -66,7 +72,7 @@ def plot_successrate(X, Y):
     ax.set_xticklabels(X_labels)
     ax.set_xlabel("difficulty")
     ax.set_ylabel("success rate")
-    ax.set_title("%d-constraints success rate (%s activation costs)" % (n_constraints-1, 
+    ax.set_title("%d extra constraints success rate (%s activation costs)" % (n_constraints-1, 
         "with" if fixed_charge else "without"))
     plt.show()
 
