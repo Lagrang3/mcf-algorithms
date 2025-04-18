@@ -868,6 +868,7 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 	/* this is near the best we can do if we ignore the constraints */
 	s64 solution_lower_bound =
 	    flow_cost_with_charge(graph, capacity, cost[0], charge[0]);
+        const s64 solution_lower_bound_0 = solution_lower_bound;
 
 	if (flow_satisfy_constraints(graph, capacity, num_constraints, cost,
 				     charge, bound) == num_constraints) {
@@ -888,7 +889,7 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 			/* normalizes the cost for all constraints so that all
 			 * constraints have the same value for the bound */
 			const double scale_factor =
-			    solution_lower_bound * 1.0 / bound[k];
+			    solution_lower_bound_0 * 1.0 / bound[k];
 
 			/* with current multiplier, what is the feature cost? */
 			const s64 feature_cost = flow_cost_with_charge(
