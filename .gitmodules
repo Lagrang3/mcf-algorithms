@@ -1,0 +1,6 @@
+[submodule "external/ccan"]
+	path = external/ccan
+	url = https://github.com/rustyrussell/ccan.git
+[submodule "external/gheap"]
+	path = external/gheap
+	url = https://github.com/valyala/gheap.git
