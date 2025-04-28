@@ -1,0 +1,99 @@
+#ifndef MCF_QUEUE
+#define MCF_QUEUE
+
+#include <ccan/lqueue/lqueue.h>
+#include <ccan/tal/tal.h>
+
+/* Generic and efficient queue based on ccan/lqueue. The size of the cache of 64
+ * is the smallest power of two for which obtain a significant time improvement.
+ * For a small problem sizes (~10) the speed-up is 3x, for large problem sizes
+ * (>1000) the speed-up is 7x. */
+
+#define QUEUE_CACHE_SIZE 64
+
+#define QUEUE_DEFINE_TYPE(type, name)                                          \
+	struct name##_qcache_ {                                                \
+		struct lqueue_link qlink;                                      \
+		int begin, end;                                                \
+		type data[QUEUE_CACHE_SIZE];                                   \
+	};                                                                     \
+	static bool name##_qcache_empty_(const struct name##_qcache_ *qc)      \
+	{                                                                      \
+		return qc->begin == qc->end;                                   \
+	}                                                                      \
+	/* UB if _qcache is empty */                                           \
+	static type name##_qcache_front_(const struct name##_qcache_ *qc)      \
+	{                                                                      \
+		return qc->data[qc->begin];                                    \
+	}                                                                      \
+	static type name##_qcache_pop_(struct name##_qcache_ *qc)              \
+	{                                                                      \
+		type r = name##_qcache_front_(qc);                             \
+		qc->begin++;                                                   \
+		if (qc->begin >= qc->end) {                                    \
+			qc->begin = qc->end = 0;                               \
+		}                                                              \
+		return r;                                                      \
+	}                                                                      \
+	static bool name##_qcache_insert_(struct name##_qcache_ *qc,           \
+					  type element)                        \
+	{                                                                      \
+		if (qc->end == QUEUE_CACHE_SIZE) {                             \
+			return false;                                          \
+		}                                                              \
+		qc->data[qc->end++] = element;                                 \
+		return true;                                                   \
+	}                                                                      \
+	static void name##_qcache_init_(struct name##_qcache_ *qc)             \
+	{                                                                      \
+		qc->begin = qc->end = 0;                                       \
+	}                                                                      \
+	struct name {                                                          \
+		const tal_t *ctx;                                              \
+		struct lqueue_ lq;                                             \
+	};                                                                     \
+	static bool name##_empty(const struct name *q)                         \
+	{                                                                      \
+		return lqueue_empty_(&q->lq);                                  \
+	}                                                                      \
+	static type name##_front(const struct name *q)                         \
+	{                                                                      \
+		type r;                                                        \
+		const struct name##_qcache_ *qc =                              \
+		    (const struct name##_qcache_ *)lqueue_front_(&q->lq);      \
+		if (qc)                                                        \
+			r = name##_qcache_front_(qc);                          \
+		return r;                                                      \
+	}                                                                      \
+	static type name##_pop(struct name *q)                                 \
+	{                                                                      \
+		type r;                                                        \
+		struct name##_qcache_ *qc =                                    \
+		    (struct name##_qcache_ *)lqueue_front_(&q->lq);            \
+		if (qc)                                                        \
+			r = name##_qcache_pop_(qc);                            \
+		if (qc && name##_qcache_empty_(qc)) {                          \
+			lqueue_dequeue_(&q->lq);                               \
+			tal_free(qc);                                          \
+		}                                                              \
+		return r;                                                      \
+	}                                                                      \
+	static void name##_init(struct name *q, const tal_t *ctx)              \
+	{                                                                      \
+		q->ctx = ctx;                                                  \
+		lqueue_init_(&q->lq, NULL);                                    \
+	}                                                                      \
+	static void name##_insert(struct name *q, type element)                \
+	{                                                                      \
+		struct name##_qcache_ *qc =                                    \
+		    (struct name##_qcache_ *)lqueue_back_(&q->lq);             \
+		if (qc && name##_qcache_insert_(qc, element))                  \
+			return;                                                \
+		qc = tal(q->ctx, struct name##_qcache_);                       \
+		name##_qcache_init_(qc);                                       \
+		name##_qcache_insert_(qc, element);                            \
+		lqueue_enqueue_(&q->lq, (struct lqueue_link *)qc);             \
+	}                                                                      \
+	/* QUEUE_DEFINE_TYPE */
+
+#endif /* MCF_QUEUE */

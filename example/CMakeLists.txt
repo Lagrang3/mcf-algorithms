@@ -24,3 +24,6 @@ target_link_libraries(ex-fcmcf-approx-validate mcf)
 
 add_executable(ex-constrained-fcmcf-validate ex-constrained-fcmcf-validate.c)
 target_link_libraries(ex-constrained-fcmcf-validate mcf)
+
+add_executable(ex-queue ex-queue.c)
+target_link_libraries(ex-queue mcf)
