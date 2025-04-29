@@ -27,3 +27,6 @@ target_link_libraries(ex-constrained-fcmcf-validate mcf)
 
 add_executable(ex-queue ex-queue.c)
 target_link_libraries(ex-queue mcf)
+
+add_executable(ex-goldberg-tarjan-validate ex-goldberg-tarjan-validate.c)
+target_link_libraries(ex-goldberg-tarjan-validate mcf)

@@ -1,12 +1,13 @@
 #include <ccan/bitmap/bitmap.h>
 #include <ccan/lqueue/lqueue.h>
 #include <ccan/tal/tal.h>
+#include <math.h>
 #include <mcf/algorithm.h>
 #include <mcf/priorityqueue.h>
-#include <math.h>
+#include <mcf/queue.h>
 
 static const s64 INFINITE = INT64_MAX;
-
+QUEUE_DEFINE_TYPE(u32, queue_of_u32);
 
 bool BFS_path(const tal_t *ctx, const struct graph *graph,
 	      const struct node source, const struct node destination,
@@ -961,4 +962,148 @@ finish:
 
 	tal_free(this_ctx);
 	return is_feasible;
+}
+
+/* Goldberg-Tarjan's push/relabel, auxiliary routine. */
+static s64 GT_push(struct arc arc, const struct graph *graph, s64 *excess,
+		   s64 *residual_capacity)
+{
+	struct arc dual = arc_dual(graph, arc);
+	struct node from = arc_tail(graph, arc);
+	struct node to = arc_head(graph, arc);
+
+	s64 flow = MIN(excess[from.idx], residual_capacity[arc.idx]);
+
+	residual_capacity[arc.idx] -= flow;
+	residual_capacity[dual.idx] += flow;
+	excess[from.idx] -= flow;
+	excess[to.idx] += flow;
+
+	return flow;
+}
+
+/* Goldberg-Tarjan's push/relabel, auxiliary routine.
+ * note: supply/demand from above is as good as the flow excess */
+static void GT_discharge(u32 nodeidx, const struct graph *graph,
+			 struct queue_of_u32 *active, s64 *excess,
+			 s64 *residual_capacity, u32 *label,
+			 const u32 max_label)
+{
+	/* do push/relable while node is active */
+	while (label[nodeidx] < max_label && excess[nodeidx] > 0) {
+		/* smallest label in the neighborhood */
+		u32 min_label = UINT32_MAX;
+
+		/* try pushing out flow */
+		struct node node = {.idx = nodeidx};
+		for (struct arc arc = node_adjacency_begin(graph, node);
+		     !node_adjacency_end(arc);
+		     arc = node_adjacency_next(graph, arc)) {
+			const struct node next = arc_head(graph, arc);
+
+			if (residual_capacity[arc.idx] <= 0 ||
+			    label[nodeidx] <= label[next.idx])
+				/* cannot push through this arc */
+				continue;
+
+			s64 flow =
+			    GT_push(arc, graph, excess, residual_capacity);
+
+			if (excess[next.idx] == flow && flow > 0 &&
+			    label[next.idx] < max_label)
+				queue_of_u32_insert(active, next.idx);
+
+			if (residual_capacity[arc.idx] > 0)
+				min_label = MIN(min_label, label[next.idx]);
+		}
+
+		/* still have excess: relabel */
+		if (excess[nodeidx] > 0) {
+			if (min_label < UINT32_MAX &&
+			    min_label >= label[nodeidx])
+				label[nodeidx] = min_label + 1;
+			else
+				label[nodeidx]++;
+		}
+	}
+}
+
+/* A variation of Maximum-Flow "push/relabel" to find a feasible flow.
+ *
+ * See Goldberg-Tarjan "A New Approach to the Maximum-Flow Problem", JACM, Vol.
+ * 35, No. 4, October 1988, pp. 921--940
+ *
+ * @ctx: allocator.
+ * @graph: graph, assumes the existence of reverse (dual) arcs.
+ * @supply: supply/demand encoding, supply[i]>0 for source nodes and supply[i]<0
+ * for sinks. It is modified by the algorithm execution. When a feasible
+ * solution is found supply[i] = 0 for every node.
+ * @residual_capacity: residual capacity on arcs, here the final solution is
+ * encoded.
+ * */
+bool goldberg_tarjan_feasible(const tal_t *ctx, const struct graph *graph,
+			      s64 *supply, s64 *residual_capacity)
+{
+	const tal_t *this_ctx = tal(ctx, tal_t);
+	struct queue_of_u32 active;
+	queue_of_u32_init(&active, this_ctx);
+
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	const size_t max_num_nodes = graph_max_num_nodes(graph);
+	u32 *label = tal_arrz(this_ctx, u32, max_num_nodes);
+
+	/* if a node reaches this label number, then it cannot possibly reach
+	 * any sink */
+	const u32 max_label = max_num_nodes;
+
+	for (u32 node_id = 0; node_id < max_num_nodes; node_id++) {
+		if (supply[node_id] > 0) {
+			label[node_id] = 1;
+			queue_of_u32_insert(&active, node_id);
+		}
+	}
+
+	while (!queue_of_u32_empty(&active)) {
+		u32 node = queue_of_u32_pop(&active);
+		GT_discharge(node, graph, &active, supply, residual_capacity,
+			     label, max_label);
+	}
+
+	/* did we find a feasible solution? */
+	bool solved = true;
+	for (u32 node_id = 0; node_id < max_num_nodes; node_id++)
+		if (supply[node_id] != 0) {
+			solved = false;
+			break;
+		}
+
+	tal_free(this_ctx);
+	return solved;
+}
+
+/* Minimum-Cost Flow "cost scaling, push/relabel"
+ *
+ * see Goldberg-Tarjan "Finding Minimum-Cost Circulations by Successive
+ * Approximation" Math. of Op. Research, Vol. 15, No. 3 (Aug. 1990), pp.
+ * 430--466.
+ *
+ * @ctx: allocator.
+ * @graph: graph, assumes the existence of reverse (dual) arcs.
+ * @supply: supply/demand encoding, supply[i]>0 for source nodes and supply[i]<0
+ * for sinks. It is modified by the algorithm execution. When a feasible
+ * solution is found supply[i] = 0 for every node.
+ * @residual_capacity: residual capacity on arcs, here the final solution is
+ * encoded.
+ * @cost: cost per unit of flow on arcs. It is assumed that dual arcs have the
+ * opposite cost of its twin: cost[i] = -cost[dual(i)].
+ * */
+bool goldberg_tarjan_mcf(const tal_t *ctx, const struct graph *graph,
+			 s64 *supply, s64 *residual_capacity, const s64 *cost)
+{
+	if (!goldberg_tarjan_feasible(ctx, graph, supply, residual_capacity)) {
+		return false;
+	}
+	// FIXME: improve the solution: use min-cost circulation algorithm
+	//      call goldberg_tarjan_circulation
+	return true;
 }

@@ -40,4 +40,5 @@ python ./python/fuzzy.py 0 1 100 5000 10 10 >> $fname
 python ./python/fuzzy.py 0 1 100 5000 10 10 >> $fname
 python ./python/fuzzy.py 0 0 0 0 0 0 >> $fname
 
-./example/ex-mcf-validate < $fname
+./build/example/ex-mcf-validate < $fname
+./build/example/ex-goldberg-tarjan-validate < $fname
