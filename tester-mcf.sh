@@ -38,6 +38,11 @@ python ./python/fuzzy.py 0 1 100 5000 10 10 >> $fname
 python ./python/fuzzy.py 0 1 100 5000 10 10 >> $fname
 python ./python/fuzzy.py 0 1 100 5000 10 10 >> $fname
 python ./python/fuzzy.py 0 1 100 5000 10 10 >> $fname
+python ./python/fuzzy.py 0 1 1000 50000 100 100 >> $fname
+python ./python/fuzzy.py 0 1 1000 50000 100 100 >> $fname
+python ./python/fuzzy.py 0 1 1000 50000 100 100 >> $fname
+python ./python/fuzzy.py 0 1 1000 50000 100 100 >> $fname
+python ./python/fuzzy.py 0 1 1000 50000 100 100 >> $fname
 python ./python/fuzzy.py 0 0 0 0 0 0 >> $fname
 
 ./build/example/ex-mcf-validate < $fname
