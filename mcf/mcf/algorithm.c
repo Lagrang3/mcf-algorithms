@@ -965,26 +965,22 @@ finish:
 }
 
 /* Goldberg-Tarjan's push/relabel, auxiliary routine. */
-static s64 GT_push(struct arc arc, const struct graph *graph, s64 *excess,
-		   s64 *residual_capacity)
+static void gt_push(struct arc arc, const struct graph *graph, s64 *excess,
+		    s64 *residual_capacity, s64 flow)
 {
 	struct arc dual = arc_dual(graph, arc);
 	struct node from = arc_tail(graph, arc);
 	struct node to = arc_head(graph, arc);
 
-	s64 flow = MIN(excess[from.idx], residual_capacity[arc.idx]);
-
 	residual_capacity[arc.idx] -= flow;
 	residual_capacity[dual.idx] += flow;
 	excess[from.idx] -= flow;
 	excess[to.idx] += flow;
-
-	return flow;
 }
 
 /* Goldberg-Tarjan's push/relabel, auxiliary routine.
  * note: supply/demand from above is as good as the flow excess */
-static void GT_discharge(u32 nodeidx, const struct graph *graph,
+static void gt_discharge(u32 nodeidx, const struct graph *graph,
 			 struct queue_of_u32 *active, s64 *excess,
 			 s64 *residual_capacity, u32 *label,
 			 const u32 max_label)
@@ -997,24 +993,28 @@ static void GT_discharge(u32 nodeidx, const struct graph *graph,
 		/* try pushing out flow */
 		struct node node = {.idx = nodeidx};
 		for (struct arc arc = node_adjacency_begin(graph, node);
-		     !node_adjacency_end(arc);
+		     !node_adjacency_end(arc)
+                     && excess[nodeidx]>0;
 		     arc = node_adjacency_next(graph, arc)) {
 			const struct node next = arc_head(graph, arc);
 
-			if (residual_capacity[arc.idx] <= 0 ||
-			    label[nodeidx] <= label[next.idx])
-				/* cannot push through this arc */
+			if (residual_capacity[arc.idx] <= 0)
 				continue;
+			/* applies only to residual arcs */
 
-			s64 flow =
-			    GT_push(arc, graph, excess, residual_capacity);
+			if (label[nodeidx] > label[next.idx]) {
+				const s64 flow = MIN(excess[nodeidx],
+					       residual_capacity[arc.idx]);
+				const s64 old_excess = excess[next.idx];
+				gt_push(arc, graph, excess, residual_capacity,
+					flow);
 
-			if (excess[next.idx] == flow && flow > 0 &&
-			    label[next.idx] < max_label)
-				queue_of_u32_insert(active, next.idx);
-
-			if (residual_capacity[arc.idx] > 0)
+				if (excess[next.idx] > 0 && old_excess <= 0 &&
+				    label[next.idx] < max_label)
+					queue_of_u32_insert(active, next.idx);
+			} else {
 				min_label = MIN(min_label, label[next.idx]);
+			}
 		}
 
 		/* still have excess: relabel */
@@ -1065,7 +1065,7 @@ bool goldberg_tarjan_feasible(const tal_t *ctx, const struct graph *graph,
 
 	while (!queue_of_u32_empty(&active)) {
 		u32 node = queue_of_u32_pop(&active);
-		GT_discharge(node, graph, &active, supply, residual_capacity,
+		gt_discharge(node, graph, &active, supply, residual_capacity,
 			     label, max_label);
 	}
 
@@ -1081,6 +1081,124 @@ bool goldberg_tarjan_feasible(const tal_t *ctx, const struct graph *graph,
 	return solved;
 }
 
+/* Goldberg-Tarjan's push/relabel, auxiliary routine */
+static void gt_discharge_with_cost(const u32 nodeidx, const struct graph *graph,
+				   struct queue_of_u32 *active, s64 *excess,
+				   s64 *residual_capacity, const s64 *cost,
+				   s64 *potential, const s64 epsilon)
+{
+        const s64 N = graph_max_num_nodes(graph);
+	const struct node node = {.idx = nodeidx};
+
+	while (excess[nodeidx] > 0) {
+		s64 min_cost = INT64_MAX;
+
+		/* try pushing out flow */
+		for (struct arc arc = node_adjacency_begin(graph, node);
+		     !node_adjacency_end(arc) && excess[nodeidx] > 0;
+		     arc = node_adjacency_next(graph, arc)) {
+			const struct node next = arc_head(graph, arc);
+
+			if (residual_capacity[arc.idx] <= 0)
+				continue;
+			/* applies only to residual arcs */
+
+			const s64 reduced_cost = cost[arc.idx] * N +
+						 potential[next.idx] -
+						 potential[nodeidx];
+			const s64 flow =
+			    MIN(excess[nodeidx], residual_capacity[arc.idx]);
+			assert(flow > 0);
+
+			if (reduced_cost < 0) {
+				const s64 old_excess = excess[next.idx];
+				gt_push(arc, graph, excess, residual_capacity,
+					flow);
+				if (excess[next.idx] > 0 && old_excess <= 0)
+					queue_of_u32_insert(active, next.idx);
+			} else {
+				min_cost = MIN(min_cost, reduced_cost);
+			}
+		}
+
+		/* still have excess: relabel */
+		if (excess[nodeidx] > 0) {
+			assert(min_cost < INT64_MAX);
+			potential[nodeidx] += min_cost + epsilon;
+		}
+	}
+}
+
+/* First-In-First-Out refine operation for Goldberg-Tarjan's push/relabel
+ * min-cost-circulation. */
+static void gt_fifo_refine(const tal_t *ctx, const struct graph *graph,
+			   s64 *residual_capacity, const s64 *cost, s64 *excess,
+			   s64 *potential, s64 epsilon)
+{
+	const tal_t *this_ctx = tal(ctx, tal_t);
+	struct queue_of_u32 active;
+	queue_of_u32_init(&active, this_ctx);
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	const s64 N = graph_max_num_nodes(graph);
+
+	/* saturate all negative cost arcs */
+	for (u32 i = 0; i < max_num_arcs; i++) {
+		struct arc arc = {.idx = i};
+		if (arc_enabled(graph, arc)) {
+			struct node to = arc_head(graph, arc);
+			struct node from = arc_tail(graph, arc);
+			const s64 reduced_cost = cost[i] * N +
+						 potential[to.idx] -
+						 potential[from.idx];
+			const s64 flow = residual_capacity[arc.idx];
+			if (reduced_cost < 0 && flow > 0)
+				gt_push(arc, graph, excess, residual_capacity,
+					flow);
+		}
+	}
+
+	/* enqueue all active nodes */
+	for (u32 nodeidx = 0; nodeidx < N; nodeidx++) {
+		if (excess[nodeidx] > 0)
+			queue_of_u32_insert(&active, nodeidx);
+	}
+
+	/* push/relabel until there are no more active nodes */
+	while (!queue_of_u32_empty(&active)) {
+		u32 node = queue_of_u32_pop(&active);
+		gt_discharge_with_cost(node, graph, &active, excess,
+				       residual_capacity, cost, potential,
+				       epsilon);
+	}
+	tal_free(this_ctx);
+}
+
+/* This is the actual implementation of the Minimum-Cost Circulation algorithm.
+ *
+ * note: supply/demand is already satisfied in this state,
+ * algorithm always succeds */
+static void goldberg_tarjan_circulation(const tal_t *ctx,
+					const struct graph *graph,
+					s64 *residual_capacity, const s64 *cost,
+					s64 min_epsilon, s64 epsilon)
+{
+	const tal_t *this_ctx = tal(ctx, tal_t);
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	const size_t max_num_nodes = graph_max_num_nodes(graph);
+	s64 *potential = tal_arrz(this_ctx, s64, max_num_nodes);
+	s64 *excess = tal_arrz(this_ctx, s64, max_num_nodes);
+	while (epsilon > min_epsilon) {
+		epsilon /= 2;
+		gt_fifo_refine(this_ctx, graph, residual_capacity, cost, excess,
+			       potential, epsilon);
+	}
+	tal_free(this_ctx);
+}
+
+static bool check_overflow(double x, double y, double bound)
+{
+	return x * y <= bound;
+}
 /* Minimum-Cost Flow "cost scaling, push/relabel"
  *
  * see Goldberg-Tarjan "Finding Minimum-Cost Circulations by Successive
@@ -1103,7 +1221,15 @@ bool goldberg_tarjan_mcf(const tal_t *ctx, const struct graph *graph,
 	if (!goldberg_tarjan_feasible(ctx, graph, supply, residual_capacity)) {
 		return false;
 	}
-	// FIXME: improve the solution: use min-cost circulation algorithm
-	//      call goldberg_tarjan_circulation
+        const size_t max_num_arcs = graph_max_num_arcs(graph);
+        const size_t max_num_nodes = graph_max_num_nodes(graph);
+	s64 max_epsilon = 0, min_epsilon = 1;
+	for (u32 i = 0; i < max_num_arcs; i++)
+		if (arc_enabled(graph, arc_obj(i)))
+			max_epsilon = MAX(cost[i], max_epsilon);
+	assert(check_overflow(max_epsilon, max_num_nodes, INT64_MAX));
+	max_epsilon *= max_num_nodes;
+	goldberg_tarjan_circulation(ctx, graph, residual_capacity, cost,
+				    min_epsilon, max_epsilon);
 	return true;
 }
