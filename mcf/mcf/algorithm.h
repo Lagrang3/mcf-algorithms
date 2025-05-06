@@ -257,9 +257,9 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 			     const size_t max_num_iterations);
 
 /* Helper, count the number of satisfied constraints */
-int flow_satisfy_constraints(const struct graph *graph, s64 *capacity,
-			     const size_t num_constraints, s64 **cost,
-			     s64 **charge, const s64 *bound);
+unsigned int flow_satisfy_constraints(const struct graph *graph, s64 *capacity,
+				      const size_t num_constraints, s64 **cost,
+				      s64 **charge, const s64 *bound);
 
 /* Helper to obtain the cost of flow for a given cost function with activation
  * costs. */

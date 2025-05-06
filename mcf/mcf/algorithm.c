@@ -172,7 +172,7 @@ static s64 get_augmenting_flow(const struct graph *graph,
 	assert(max_num_arcs == tal_count(capacity));
 
 	/* count the number of arcs in the path */
-	int path_length = 0;
+	unsigned int path_length = 0;
 	s64 flow = INFINITE;
 
 	struct node cur = target;
@@ -237,7 +237,7 @@ static void augment_flow(const struct graph *graph,
 
 	struct node cur = target;
 	/* count the number of arcs in the path */
-	int path_length = 0;
+	unsigned int path_length = 0;
 
 	while (cur.idx != source.idx) {
 		assert(cur.idx < max_num_nodes);
@@ -792,11 +792,11 @@ finish:
 	return solved;
 }
 
-int flow_satisfy_constraints(const struct graph *graph, s64 *capacity,
-			      const size_t num_constraints, s64 **cost,
-			      s64 **charge, const s64 *bound)
+unsigned int flow_satisfy_constraints(const struct graph *graph, s64 *capacity,
+				      const size_t num_constraints, s64 **cost,
+				      s64 **charge, const s64 *bound)
 {
-	int count_ok = 0;
+	unsigned int count_ok = 0;
 	for (size_t k = 0; k < num_constraints; k++) {
 		s64 F =
 		    flow_cost_with_charge(graph, capacity, cost[k], charge[k]);
@@ -849,7 +849,6 @@ bool solve_constrained_fcnfp(const tal_t *ctx, const struct graph *graph,
 	const double decay_exponent = 0.5;
 
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
-	const size_t max_num_nodes = graph_max_num_nodes(graph);
 
 	bool have_best_solution = false;
 	s64 best_solution = INT64_MAX;
@@ -1048,7 +1047,6 @@ bool goldberg_tarjan_feasible(const tal_t *ctx, const struct graph *graph,
 	struct queue_of_u32 active;
 	queue_of_u32_init(&active, this_ctx);
 
-	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 	u32 *label = tal_arrz(this_ctx, u32, max_num_nodes);
 
@@ -1183,7 +1181,6 @@ static void goldberg_tarjan_circulation(const tal_t *ctx,
 					s64 min_epsilon, s64 epsilon)
 {
 	const tal_t *this_ctx = tal(ctx, tal_t);
-	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
 	s64 *potential = tal_arrz(this_ctx, s64, max_num_nodes);
 	s64 *excess = tal_arrz(this_ctx, s64, max_num_nodes);

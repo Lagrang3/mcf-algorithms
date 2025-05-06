@@ -18,7 +18,7 @@ static bool solve_case(const tal_t *ctx) {
 	tal_t *this_ctx = tal(ctx, tal_t);
 
 	char problem_ID[20];
-	int N_nodes, N_arcs, N_constraints;
+	unsigned int N_nodes, N_arcs, N_constraints;
 	double difficulty; /* just informative about how the problem was generated */
 	scanf("%s", problem_ID);
 	scanf("%d %d %d %lf\n", &N_nodes, &N_arcs, &N_constraints, &difficulty);
@@ -28,9 +28,9 @@ static bool solve_case(const tal_t *ctx) {
 	if (N_nodes == 0 && N_arcs == 0 && N_constraints==0) goto fail;
 	
 	
-	const int MAX_NODES = N_nodes;
-	const int DUAL_BIT = next_bit(N_arcs);
-	const int MAX_ARCS = (1LL << DUAL_BIT) | N_arcs;
+	const unsigned int MAX_NODES = N_nodes;
+	const unsigned int DUAL_BIT = next_bit(N_arcs);
+	const unsigned int MAX_ARCS = (1LL << DUAL_BIT) | N_arcs;
 
 	struct graph *graph = graph_new(ctx, MAX_NODES, MAX_ARCS, DUAL_BIT);
 	assert(graph);
@@ -117,17 +117,17 @@ static bool solve_case(const tal_t *ctx) {
 	printf("%s %lf %lld %d %lld %d %lld %d\n",
 	       problem_ID,
 	       difficulty,
-	       best_cost,
+	       (long long)best_cost,
 	       N_constraints,
-	       cost_unconstrained,
+	       (long long)cost_unconstrained,
 	       satisfied_UNconstraints,
-	       cost_constrained,
+	       (long long)cost_constrained,
 	       satisfied_constraints);
 
 	// read the proof and skip it
 	for (u32 i = 0; i < N_arcs; i++) {
 		long long x;
-		scanf("%lf", &x);
+		scanf("%lld", &x);
 	}
 
 	tal_free(this_ctx);

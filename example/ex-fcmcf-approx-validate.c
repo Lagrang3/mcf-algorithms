@@ -86,13 +86,13 @@ static bool solve_case(const tal_t *ctx) {
 	c++;
 	tal_t *this_ctx = tal(ctx, tal_t);
 
-	int N_nodes, N_arcs;
+	unsigned int N_nodes, N_arcs;
 	scanf("%d %d\n", &N_nodes, &N_arcs);
 	if (N_nodes == 0 && N_arcs == 0) goto fail;
 
-	const int MAX_NODES = N_nodes;
-	const int DUAL_BIT = next_bit(N_arcs);
-	const int MAX_ARCS = (1LL << DUAL_BIT) | N_arcs;
+	const unsigned int MAX_NODES = N_nodes;
+	const unsigned int DUAL_BIT = next_bit(N_arcs);
+	const unsigned int MAX_ARCS = (1LL << DUAL_BIT) | N_arcs;
 
 	struct graph *graph = graph_new(ctx, MAX_NODES, MAX_ARCS, DUAL_BIT);
 	assert(graph);
@@ -145,12 +145,12 @@ static bool solve_case(const tal_t *ctx) {
 	const s64 dynslope_solution =
 	    compute_cost(graph, capacity, cost, fixedcost);
 	printf("%lld %lld %lld %lf %lf %lld\n",
-	       best_cost,
-	       mcf_solution,
-	       dynslope_solution,
+	       (long long)best_cost,
+	       (long long)mcf_solution,
+	       (long long)dynslope_solution,
 	       mean_fixedcost,
 	       mean_cost,
-	       amount);
+	       (long long)amount);
 
 	tal_free(this_ctx);
 	return true;
