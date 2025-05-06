@@ -46,18 +46,22 @@ int test_pure_iqueue(int n)
 
 int main()
 {
+	const int repeat = 1000, tot_elements = 10000;
 	clock_t t1, t2;
+        double dt_sec;
 	t1 = clock();
-	for (int i = 0; i < 1000; i++)
-		test_pure_lqueue(10000);
+	for (int i = 0; i < repeat; i++)
+		test_pure_lqueue(tot_elements);
 	t2 = clock();
-	printf("Pure lqueue took: %lf ms\n",
-	       1000 * (double)(t2 - t1) / CLOCKS_PER_SEC);
+	dt_sec = ((double)(t2 - t1)) / CLOCKS_PER_SEC;
+	printf("Pure lqueue took: %lf ms (%.0lf operations/sec)\n", 1000 * dt_sec,
+	       (repeat * tot_elements * 2) / dt_sec);
 	t1 = clock();
-	for (int i = 0; i < 1000; i++)
-		test_pure_iqueue(10000);
+	for (int i = 0; i < repeat; i++)
+		test_pure_iqueue(tot_elements);
 	t2 = clock();
-	printf("iqueue took: %lf ms\n",
-	       1000 * (double)(t2 - t1) / CLOCKS_PER_SEC);
+	dt_sec = ((double)(t2 - t1)) / CLOCKS_PER_SEC;
+	printf("iqueue took: %lf ms (%.0lf operations/sec)\n", 1000 * dt_sec,
+	       (repeat * tot_elements * 2) / dt_sec);
 	return 0;
 }

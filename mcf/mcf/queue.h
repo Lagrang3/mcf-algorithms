@@ -8,7 +8,8 @@
 /* Generic and efficient queue based on ccan/lqueue. The size of the cache of 64
  * is the smallest power of two for which obtain a significant time improvement.
  * For a small problem sizes (~10) the speed-up is 3x, for large problem sizes
- * (>1000) the speed-up is 7x. */
+ * (>1000) the speed-up is 7x.
+ * ~0.5 operations/nsec */
 
 #define QUEUE_CACHE_SIZE 64
 
