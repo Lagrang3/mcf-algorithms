@@ -1170,6 +1170,7 @@ static void gt_mcf_relabel(struct goldberg_tarjan_network *gt,
 /* highest value relabel we can perform while keeping epsilon-optimality */
 #ifdef GOLDBERG_MAX_RELABEL
 	s64 smallest_cost = INT64_MAX;
+	struct arc first_residual_arc;
 	for (struct arc arc = node_adjacency_begin(gt->graph, node);
 	     !node_adjacency_end(arc);
 	     arc = node_adjacency_next(gt->graph, arc)) {
@@ -1179,6 +1180,10 @@ static void gt_mcf_relabel(struct goldberg_tarjan_network *gt,
 
 		struct node next = arc_head(gt->graph, arc);
 		s64 rcost = gt->cost[arc.idx] + gt->potential[next.idx];
+
+		/* remember the first residual arc to use as current_arc */
+		if (smallest_cost == INT64_MAX)
+			first_residual_arc = arc;
 
 		if (rcost < gt->potential[nodeidx]) {
 			// at least one arc is admissible, we exit early
@@ -1191,6 +1196,7 @@ static void gt_mcf_relabel(struct goldberg_tarjan_network *gt,
 
 	if (smallest_cost < INT64_MAX) {
 		gt->potential[nodeidx] = smallest_cost + epsilon;
+		gt->current_arc[nodeidx] = first_residual_arc;
 	}
 #endif // GOLDBERG_MAX_RELABEL
 }
@@ -1440,7 +1446,8 @@ bool goldberg_tarjan_mcf(const tal_t *ctx, const struct graph *graph,
 	/* we work with the residual_capacity in-place */
 	gt->residual_capacity = residual_capacity;
 	gt->current_arc = tal_arr(gt, struct arc, max_num_nodes);
-	gt->excess = tal_arrz(gt, s64, max_num_nodes);
+	/* assumed to be zero at this point */
+	gt->excess = supply;
 	gt->potential = tal_arrz(gt, s64, max_num_nodes);
 	gt->cost = tal_arrz(gt, s64, max_num_arcs);
 
