@@ -33,3 +33,12 @@ target_link_libraries(ex-stack mcf)
 
 add_executable(ex-goldberg-tarjan-validate ex-goldberg-tarjan-validate.c)
 target_link_libraries(ex-goldberg-tarjan-validate mcf)
+
+if(ortools_FOUND)
+        add_executable(ex-mcf-ortools ex-mcf-ortools.cpp)
+        target_link_libraries(ex-mcf-ortools ortools::ortools)
+else()
+        message(
+                WARNING
+                "Dependency ortools not found. Executable ex-mcf-ortools will not be built.")
+endif()

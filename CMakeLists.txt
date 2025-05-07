@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.25)
-project(mcf C)
+project(mcf C CXX)
 add_compile_options(-Wall -Werror -Wextra -O2)
+set(CMAKE_CXX_STANDARD 20)
 
+find_package(ortools)
 add_subdirectory(config)
 add_subdirectory(external)
 add_subdirectory(mcf)
