@@ -986,6 +986,7 @@ finish:
  * contrary it degrades it. But combined with GOLDBERG_MAX_RELABEL produces a
  * substantial increase in performance. */
 #define GOLDBERG_LOOKAHEAD
+// #define GOLDBERG_CHECKS
 
 
 /* FIXME: the original paper (Goldbert-Tarjan 1990) suggest using a
@@ -1140,6 +1141,61 @@ static s64 gt_reduced_cost(const struct goldberg_tarjan_network *gt, u32 arcidx,
 	return gt->cost[arcidx] + gt->potential[to] - gt->potential[from];
 }
 
+#ifdef GOLDBERG_CHECKS
+static s64 gt_arc_reduced_cost(const struct goldberg_tarjan_network *gt,
+			       const u32 arcidx)
+{
+	const struct arc arc = {.idx = arcidx};
+	const struct node from = arc_tail(gt->graph, arc);
+	const struct node to = arc_head(gt->graph, arc);
+	return gt_reduced_cost(gt, arcidx, from.idx, to.idx);
+}
+
+static bool gt_check_optimality(const struct goldberg_tarjan_network *gt,
+				const s64 epsilon)
+{
+	assert(epsilon >= 0);
+	const size_t max_num_arcs = graph_max_num_arcs(gt->graph);
+	for (u32 arcidx = 0; arcidx < max_num_arcs; arcidx++) {
+		if (!arc_enabled(gt->graph, arc_obj(arcidx)))
+			continue;
+		const s64 rcost = gt_arc_reduced_cost(gt, arcidx);
+		if (rcost < -epsilon && gt->residual_capacity[arcidx] > 0)
+			return false;
+	}
+	return true;
+}
+
+static bool
+gt_check_excess_feasibility(const struct goldberg_tarjan_network *gt)
+{
+	const size_t max_num_nodes = graph_max_num_nodes(gt->graph);
+	s64 tot_excess = 0;
+	for (u32 nodeidx = 0; nodeidx < max_num_nodes; nodeidx++) {
+		tot_excess += gt->excess[nodeidx];
+	}
+	return tot_excess == 0;
+}
+
+static bool gt_check_has_admissible_arcs(struct goldberg_tarjan_network *gt,
+					 const u32 nodeidx)
+{
+	for (struct arc arc =
+		 node_adjacency_begin(gt->graph, node_obj(nodeidx));
+	     !node_adjacency_end(arc);
+	     arc = node_adjacency_next(gt->graph, arc)) {
+		struct node next = arc_head(gt->graph, arc);
+		const s64 rcost =
+		    gt_reduced_cost(gt, arc.idx, nodeidx, next.idx);
+		if (gt->residual_capacity[arc.idx] > 0 && rcost < 0) {
+			gt->current_arc[nodeidx] = arc;
+			return true;
+		}
+	}
+	return false;
+}
+#endif // GOLDBERG_CHECKS
+
 #ifdef GOLDBERG_LOOKAHEAD
 static bool gt_has_admissible_arcs(struct goldberg_tarjan_network *gt,
 				   const u32 nodeidx)
@@ -1162,6 +1218,10 @@ static bool gt_has_admissible_arcs(struct goldberg_tarjan_network *gt,
 static void gt_mcf_relabel(struct goldberg_tarjan_network *gt,
 			   const u32 nodeidx, const s64 epsilon)
 {
+#ifdef GOLDBERG_CHECKS
+	assert(!gt_check_has_admissible_arcs(gt, nodeidx));
+#endif // GOLDBERG_CHECKS
+
 	/* a conservative relabel, just add epsilon */
 	struct node node = {.idx = nodeidx};
 	gt->potential[nodeidx] += epsilon;
@@ -1188,7 +1248,7 @@ static void gt_mcf_relabel(struct goldberg_tarjan_network *gt,
 		if (rcost < gt->potential[nodeidx]) {
 			// at least one arc is admissible, we exit early
 			gt->current_arc[nodeidx] = arc;
-			return;
+			goto finish;
 		}
 
 		smallest_cost = MIN(smallest_cost, rcost);
@@ -1198,7 +1258,13 @@ static void gt_mcf_relabel(struct goldberg_tarjan_network *gt,
 		gt->potential[nodeidx] = smallest_cost + epsilon;
 		gt->current_arc[nodeidx] = first_residual_arc;
 	}
+finish:
 #endif // GOLDBERG_MAX_RELABEL
+
+#ifdef GOLDBERG_CHECKS
+	assert(gt_check_optimality(gt, epsilon));
+	assert(gt_check_excess_feasibility(gt));
+#endif // GOLDBERG_CHECKS
 }
 
 /* Goldberg-Tarjan's push/relabel, auxiliary routine */
@@ -1267,6 +1333,10 @@ static unsigned int gt_mcf_discharge(struct goldberg_tarjan_network *gt,
 		}
 	}
 
+#ifdef GOLDBERG_CHECKS
+	assert(gt_check_optimality(gt, epsilon));
+	assert(gt_check_excess_feasibility(gt));
+#endif // GOLDBERG_CHECKS
 	return num_relabels;
 }
 
@@ -1333,6 +1403,10 @@ static bool gt_set_relabel(struct goldberg_tarjan_network *gt,
 
 finish:
 	tal_free(this_ctx);
+#ifdef GOLDBERG_CHECKS
+	assert(gt_check_optimality(gt, epsilon));
+	assert(gt_check_excess_feasibility(gt));
+#endif // GOLDBERG_CHECKS
 	return did_relabel;
 }
 #endif // GOLDBERG_PRICE_UPDATE
@@ -1391,6 +1465,10 @@ static void gt_refine(struct goldberg_tarjan_network *gt, s64 epsilon)
 		u32 nodeidx = gt_active_pop(&active);
 		num_relabels += gt_mcf_discharge(gt, &active, epsilon, nodeidx);
 	}
+#ifdef GOLDBERG_CHECKS
+	assert(gt_check_optimality(gt, epsilon));
+	assert(gt_check_excess_feasibility(gt));
+#endif // GOLDBERG_CHECKS
 	tal_free(this_ctx);
 }
 
@@ -1402,6 +1480,10 @@ static void goldberg_tarjan_circulation(struct goldberg_tarjan_network *gt,
 					s64 epsilon)
 {
 	while (epsilon > 1) {
+#ifdef GOLDBERG_CHECKS
+		assert(gt_check_optimality(gt, epsilon));
+		assert(gt_check_excess_feasibility(gt));
+#endif // GOLDBERG_CHECKS
 #ifdef GOLDBERG_PRICE_REFINEMENT
 		epsilon /= GOLDBERG_PRICE_REFINEMENT;
 #else
