@@ -1271,7 +1271,7 @@ static unsigned int gt_mcf_discharge(struct goldberg_tarjan_network *gt,
 }
 
 #ifdef GOLDBERG_PRICE_UPDATE
-static void gt_set_relabel(struct goldberg_tarjan_network *gt,
+static bool gt_set_relabel(struct goldberg_tarjan_network *gt,
 			   const s64 epsilon)
 {
 	const tal_t *this_ctx = tal(gt, tal_t);
@@ -1300,7 +1300,7 @@ static void gt_set_relabel(struct goldberg_tarjan_network *gt,
 		     !node_adjacency_end(arc);
 		     arc = node_adjacency_next(gt->graph, arc)) {
 			const struct arc dual = arc_dual(gt->graph, arc);
-			const struct node next = arc_head(gt->graph, dual);
+			const struct node next = arc_head(gt->graph, arc);
 
 			const s64 rcost =
 			    gt_reduced_cost(gt, dual.idx, next.idx, nodeidx);
@@ -1312,24 +1312,28 @@ static void gt_set_relabel(struct goldberg_tarjan_network *gt,
 			if (!bitmap_test_bit(visited, next.idx)) {
 				bitmap_set_bit(visited, next.idx);
 				queue_of_u32_insert(&pending, next.idx);
-				set_excess += gt->excess[nodeidx];
+				set_excess += gt->excess[next.idx];
 			}
 		}
 	}
 
 	assert(set_excess <= 0);
 
+	bool did_relabel = false;
 	if (set_excess == 0)
 		goto finish;
 
 	for (u32 nodeidx = 0; nodeidx < max_num_nodes; nodeidx++) {
 		if (!bitmap_test_bit(visited, nodeidx)) {
 			gt->potential[nodeidx] += epsilon;
+                        did_relabel = true;
+                        gt->current_arc[nodeidx] = node_adjacency_begin(gt->graph, node_obj(nodeidx));
 		}
 	}
 
 finish:
 	tal_free(this_ctx);
+	return did_relabel;
 }
 #endif // GOLDBERG_PRICE_UPDATE
 
@@ -1379,7 +1383,8 @@ static void gt_refine(struct goldberg_tarjan_network *gt, s64 epsilon)
 #ifdef GOLDBERG_PRICE_UPDATE
 		if (num_relabels >= max_num_nodes) {
 			num_relabels = 0;
-			gt_set_relabel(gt, epsilon);
+			while (gt_set_relabel(gt, epsilon))
+				;
 		}
 #endif // GOLDBERG_PRICE_UPDATE
 
