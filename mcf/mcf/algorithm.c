@@ -1363,6 +1363,10 @@ static unsigned int gt_mcf_discharge(struct goldberg_tarjan_network *gt,
 				if (rcost >= 0)
 					continue;
 			}
+                        // FIXME: maybe we can improve this heuristics by caping
+                        // the amount of push flow to the sum of -excess of the
+                        // next node plus the residual capacity of all its
+                        // outgoing arcs. See Bunnage-Korte-Vygen
 #endif // GOLDBERG_LOOKAHEAD
 
 			gt_push(gt, arc, flow);
@@ -1392,30 +1396,41 @@ static unsigned int gt_mcf_discharge(struct goldberg_tarjan_network *gt,
 }
 
 #ifdef GOLDBERG_PRICE_UPDATE
-static bool gt_set_relabel(struct goldberg_tarjan_network *gt,
+static void gt_set_relabel(struct goldberg_tarjan_network *gt,
 			   const s64 epsilon)
 {
 	const tal_t *this_ctx = tal(gt, tal_t);
-
 	const size_t max_num_nodes = graph_max_num_nodes(gt->graph);
-	struct queue_of_u32 pending;
-	queue_of_u32_init(&pending, this_ctx);
-	bitmap *visited =
-	    tal_arrz(this_ctx, bitmap, BITMAP_NWORDS(max_num_nodes));
 
+	struct priorityqueue *pending;
+	pending = priorityqueue_new(this_ctx, max_num_nodes);
+	priorityqueue_init(pending);
+	const s64 *distance = priorityqueue_value(pending);
+	s64 maximum_distance = 0;
 	s64 set_excess = 0;
 
+	/* negative excess nodes is where we start flooding */
 	for (u32 nodeidx = 0; nodeidx < max_num_nodes; nodeidx++) {
 		if (gt->excess[nodeidx] < 0) {
-			bitmap_set_bit(visited, nodeidx);
-			queue_of_u32_insert(&pending, nodeidx);
 			set_excess += gt->excess[nodeidx];
+			priorityqueue_update(pending, nodeidx, 0);
 		}
 	}
 
-	while (!queue_of_u32_empty(&pending) && set_excess < 0) {
-		const u32 nodeidx = queue_of_u32_pop(&pending);
+	while (!priorityqueue_empty(pending)) {
+		const u32 nodeidx = priorityqueue_top(pending);
+
+		priorityqueue_pop(pending);
 		const struct node node = {.idx = nodeidx};
+
+		if (gt->excess[nodeidx] > 0)
+			set_excess += gt->excess[nodeidx];
+
+		maximum_distance = distance[nodeidx];
+
+		/* once we have scanned all active nodes we exit */
+		if (set_excess == 0)
+			break;
 
 		for (struct arc arc = node_adjacency_begin(gt->graph, node);
 		     !node_adjacency_end(arc);
@@ -1423,42 +1438,44 @@ static bool gt_set_relabel(struct goldberg_tarjan_network *gt,
 			const struct arc dual = arc_dual(gt->graph, arc);
 			const struct node next = arc_head(gt->graph, arc);
 
+			/* traverse residual arcs only */
+			if (gt->residual_capacity[dual.idx] <= 0)
+				continue;
+
 			const s64 rcost =
 			    gt_reduced_cost(gt, dual.idx, next.idx, nodeidx);
 
-			/* traverse admissible arcs only */
-			if (gt->residual_capacity[dual.idx] <= 0 || rcost >= 0)
+			/* (node) <--- (next)
+			 * distance[next] must be the least such that
+			 *
+			 * cost[dual] + (potential[node]+distance[node]*epsilon)
+			 *      - (potential[next]+distance[next]*epsilon) < 0
+			 * */
+			s64 delta = 1 + rcost / epsilon;
+			if (rcost < 0)
+				delta = 0;
+
+			if (distance[next.idx] <= delta + distance[nodeidx])
 				continue;
 
-			if (!bitmap_test_bit(visited, next.idx)) {
-				bitmap_set_bit(visited, next.idx);
-				queue_of_u32_insert(&pending, next.idx);
-				set_excess += gt->excess[next.idx];
-			}
+			priorityqueue_update(pending, next.idx,
+					     distance[nodeidx] + delta);
 		}
 	}
-
-	assert(set_excess <= 0);
-
-	bool did_relabel = false;
-	if (set_excess == 0)
-		goto finish;
 
 	for (u32 nodeidx = 0; nodeidx < max_num_nodes; nodeidx++) {
-		if (!bitmap_test_bit(visited, nodeidx)) {
-			gt->potential[nodeidx] += epsilon;
-                        did_relabel = true;
-                        gt->current_arc[nodeidx] = node_adjacency_begin(gt->graph, node_obj(nodeidx));
+		s64 d = MIN(distance[nodeidx], maximum_distance);
+		if (d > 0) {
+			gt->potential[nodeidx] += epsilon * d;
+			gt->current_arc[nodeidx] =
+			    node_adjacency_begin(gt->graph, node_obj(nodeidx));
 		}
 	}
-
-finish:
-	tal_free(this_ctx);
 #ifdef GOLDBERG_CHECKS
 	assert(gt_check_optimality(gt, epsilon));
 	assert(gt_check_excess_feasibility(gt));
+	assert(gt_check_setlabel(gt));
 #endif // GOLDBERG_CHECKS
-	return did_relabel;
 }
 #endif // GOLDBERG_PRICE_UPDATE
 
@@ -1508,8 +1525,7 @@ static void gt_refine(struct goldberg_tarjan_network *gt, s64 epsilon)
 #ifdef GOLDBERG_PRICE_UPDATE
 		if (num_relabels >= max_num_nodes) {
 			num_relabels = 0;
-			while (gt_set_relabel(gt, epsilon))
-				;
+			gt_set_relabel(gt, epsilon);
 		}
 #endif // GOLDBERG_PRICE_UPDATE
 
