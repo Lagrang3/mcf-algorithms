@@ -1194,6 +1194,57 @@ static bool gt_check_has_admissible_arcs(struct goldberg_tarjan_network *gt,
 	}
 	return false;
 }
+
+/* Checks that the set relabel has arrived to an optimal state, ie. every active
+ * node can reach at least one sink with an admissible path. */
+static bool UNNEEDED gt_check_setlabel(struct goldberg_tarjan_network *gt)
+{
+	const tal_t *this_ctx = tal(gt, tal_t);
+
+	const size_t max_num_nodes = graph_max_num_nodes(gt->graph);
+	struct queue_of_u32 pending;
+	queue_of_u32_init(&pending, this_ctx);
+	bitmap *visited =
+	    tal_arrz(this_ctx, bitmap, BITMAP_NWORDS(max_num_nodes));
+
+	s64 set_excess = 0;
+
+	for (u32 nodeidx = 0; nodeidx < max_num_nodes; nodeidx++) {
+		if (gt->excess[nodeidx] < 0) {
+			bitmap_set_bit(visited, nodeidx);
+			queue_of_u32_insert(&pending, nodeidx);
+			set_excess += gt->excess[nodeidx];
+		}
+	}
+
+	while (!queue_of_u32_empty(&pending) && set_excess < 0) {
+		const u32 nodeidx = queue_of_u32_pop(&pending);
+		const struct node node = {.idx = nodeidx};
+
+		for (struct arc arc = node_adjacency_begin(gt->graph, node);
+		     !node_adjacency_end(arc);
+		     arc = node_adjacency_next(gt->graph, arc)) {
+			const struct arc dual = arc_dual(gt->graph, arc);
+			const struct node next = arc_head(gt->graph, arc);
+
+			const s64 rcost =
+			    gt_reduced_cost(gt, dual.idx, next.idx, nodeidx);
+
+			/* traverse admissible arcs only */
+			if (gt->residual_capacity[dual.idx] <= 0 || rcost >= 0)
+				continue;
+
+			if (!bitmap_test_bit(visited, next.idx)) {
+				bitmap_set_bit(visited, next.idx);
+				queue_of_u32_insert(&pending, next.idx);
+				set_excess += gt->excess[next.idx];
+			}
+		}
+	}
+
+	assert(set_excess <= 0);
+	return set_excess == 0;
+}
 #endif // GOLDBERG_CHECKS
 
 #ifdef GOLDBERG_LOOKAHEAD
