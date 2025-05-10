@@ -970,21 +970,28 @@ finish:
 
 /* Set-relabel is applied to the set of nodes that cannot reach any sink by
  * admissible paths.
- * FIXME: in practice with current implementation I don't see any improvements. */
+ * This heuristics alone can reduce significantly the running time by reducing
+ * the number relabeling operations. */
 #define GOLDBERG_PRICE_UPDATE
 /* Use a queue for active nodes or a stack.
  * FIXME: in practice with the current implementation I don't see any
- * improvements from using this. */
+ * significant improvement from either queue or stack ordering. The proposed
+ * first-active ordering should be explored. */
 #define GOLDBERG_QUEUE
+/* FIXME: Price refinement as proposed by Goldberg 1992 and Bunnagel-Korte-Vygen
+ * seeks the minimum value of epsilon and the corresponding potential for which
+ * the current state is epsilon-optimal then epsilon is reduced by a factor and
+ * refine is called. Right now we simply assume the current state is
+ * epsilon-optimal. */
 #define GOLDBERG_PRICE_REFINEMENT 8
 /* FIXME: implement this */
 #define GOLDBERG_ARC_FIXING
 /* Relabel a node to its maximum extent. */
 #define GOLDBERG_MAX_RELABEL
 /* Relabel neighboring nodes that do not have admissible arcs before pushing
- * flow to them. GOLDBERG_LOOKAHEAD alone does not bring much performance gain, on the
- * contrary it degrades it. But combined with GOLDBERG_MAX_RELABEL produces a
- * substantial increase in performance. */
+ * flow to them. GOLDBERG_LOOKAHEAD alone does not bring much performance gain.
+ * But combined with GOLDBERG_MAX_RELABEL produces a substantial increase in
+ * performance. */
 #define GOLDBERG_LOOKAHEAD
 // #define GOLDBERG_CHECKS
 
