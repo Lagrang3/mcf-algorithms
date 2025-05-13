@@ -257,6 +257,22 @@ N_CONSTRAINTS=4
 bash generate-cfcnfp.sh ${N_CONSTRAINTS} ${ACTIVATION_COSTS} | tee constrained-fcnfp-n${N_CONSTRAINTS}${ACTIVATION_COSTS}.data | ./example/ex-constrained-fcmcf-validate | tee results-n${N_CONSTRAINTS}${ACTIVATION_COSTS} | python3 scatter-plot-cfcnfp.py ${ACTIVATION_COSTS}
 ```
 
+# Goldberg-Tarjan's Cost Scaling Implementation
+
+To improve the runtime of the MCF solver I wrote new version based on
+Goldberg-Tarjan's Cost-Scaling-Push-Relabel algorithm [5] with some heuristics
+proposed by Goldberg in [6].
+
+In the following plot we show a comparison of runtime for our two MCF solvers "SSP"
+(the naive solution based on Successive Shortests Paths) and "Goldberg-Tarjan".
+Several problem sizes were tested: 100, 400, 1600, 6400 and 25600 for the value
+of the number of nodes. For each problem size 10 random instances were generated
+to obtain an average runtime.
+
+![Runtime comparison of MCF solvers](./plots/goldberg-tarjan.png)
+
+The test cases and the plot showed here were generated using `python/bench.py`.
+The test cases consist of random generated graph with `N` nodes and `N*50` arcs.
 
 # References
 
@@ -271,3 +287,10 @@ Operations Research Letters 24 (1999) 195-203.
 on the Lightning Network https://arxiv.org/abs/2107.05322
 
 [4] https://lagrang3.github.io/2023-10-28-renepay-1
+
+[5] Andrew V. Goldberg and Robert E. Tarjan. Finding Minimum-Cost Circulations
+by Successive Approximation. Mathematics of Operations Research, Vol. 15, No. 3
+(Aug. 1990), pp. 430--466
+
+[6] Andrew V. Goldberg. An Efficient Implementation of a Scaling Minimum-Cost
+Flow Algorithm. Journal of Algorithms 22, 1--29 (1997).
