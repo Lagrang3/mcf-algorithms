@@ -16,25 +16,32 @@ make
 
 The Fixed Charge Network Flow Problem (FCNFP) is defined as a Network Flow
 problem for which there is an additional cost for the activation of the arcs, ie. a
-flow `x` on arc `a` has a cost `C(x) = c*x + f*Theta(x)`, where `Theta(x)`
-is zero if `x` is zero or 1 otherwise, and the values `c` and `f` are
+flow `x` on arc `a` has a cost `C(x) = c*x + b*Theta(x)`, where `Theta(x)`
+is zero if `x` is zero or 1 otherwise, and the values `c` and `b` are
 non-negative numbers.
 
 The FCNFP can also be stated as follows
 ```
-given a graph G(N,A)
+Given a directed graph G(V,A), node supplies/demands s[i] for each node i in V,
+capacities u[a], per-unit cost c[a], and activation costs b[a] for each arc a in A.
+The Fixed Charge Network Flow Problem consists in finding a flow function x and
+activation y that minimizes
 
-minimize
-    sum_{a in A} x[a] * c[a] + f[a] * y[a]
+    sum_{a in A} c[a]*x[a] + b[a]*y[a]
 
 such that
-    0 <= x[a] <= u[a], for all a in A // capacity constraints
-    
-    y[a] = {0, 1}, for all a in A // y[a] are either 0 or 1
-    
-    sum_{a outgoing from n} x[a] - sum_{a incoming to n} x[a] = b[n], for all n in N // flow conservation
-    
-    0 <= x[a] <= y[a] * u[a], for all a in A // y[a] is 1 if and only if x[a]>0
+
+    // capacity constraints
+    0 <= x[a] <= u[a], for all a in A
+
+    // y[a] are either 0 or 1
+    y[a] = {0, 1}, for all a in A
+
+    // y[a] is 1 if x[a]>0,
+    0 <= x[a] <= y[a] * u[a], for all a in A
+
+    // flow conservation
+    sum_{a outgoing from i} x[a] - sum_{a incoming to i} x[a] = s[n], for all i in V
 
 ```
 
