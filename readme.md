@@ -92,6 +92,45 @@ To generate the data I used the following command line instructions
 bash generate-fcnfp.sh | tee dataset | example/ex-fcmcf-approx-validate | tee results | python scatter-plot-fcnfp.py
 ```
 
+
+# Multi-Budget Fixed Charge Network Flow Problem
+
+The Multi-Budget Fixed Charge Network Flow Problem (MBFCNFP) is a more general
+variation of the FCNFP for which we have N additional cost functions called
+"features" and a budget on each one of them.
+
+The MBFCNFP can also be stated as follows
+```
+Given a directed graph G(V,A), node supplies/demands s[i] for each node i in V,
+capacities u[a], per-unit cost c[a], and activation costs b[a] for each arc a in A.
+In addition there are N features consisting of per-unit cost c[k,a] and
+activation cost b[k,a] for each arc a in A and feature k, and a feature budget L[k].
+
+The Multi-Budget Fixed Charge Network Flow Problem consists in finding a flow function x and
+activation y that minimizes
+
+    sum_{a in A} c[a]*x[a] + b[a]*y[a]
+
+such that
+
+    // capacity constraints
+    0 <= x[a] <= u[a], for all a in A
+
+    // y[a] are either 0 or 1
+    y[a] = {0, 1}, for all a in A
+
+    // y[a] is 1 if x[a]>0,
+    0 <= x[a] <= y[a] * u[a], for all a in A
+
+    // flow conservation
+    sum_{a outgoing from i} x[a] - sum_{a incoming to i} x[a] = s[n], for all i in V
+
+    // feature budget constraints
+    sum_{a in A} c[k,a]*x[a] + b[k,a]*y[a] <= L[k], for all k in N
+
+```
+
+
 # Payment optimization as a Fixed Charge Network Flow Problem with additional constraints
 
 A channel has several features the most relevant for a payment are
